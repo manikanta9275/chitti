@@ -3,9 +3,9 @@ import { useAuth } from '../context/AuthContext';
 
 const ACCOUNTS = [
   { username: 'admin', displayName: 'Admin', role: 'admin', defaultPin: '9999', icon: 'bi-shield-lock-fill', color: 'danger' },
-  { username: 'mani', displayName: 'Mani', role: 'user', defaultPin: '9275', icon: 'bi-person-badge-fill', color: 'primary' },
+  // { username: 'mani', displayName: 'Mani', role: 'user', defaultPin: '9275', icon: 'bi-person-badge-fill', color: 'primary' },
   { username: 'mavayya', displayName: 'Mavayya', role: 'user', defaultPin: '9278', icon: 'bi-person-badge-fill', color: 'success' },
-  { username: 'ganesh', displayName: 'Ganesh', role: 'user', defaultPin: '9280', icon: 'bi-person-badge-fill', color: 'info' }
+  // { username: 'ganesh', displayName: 'Ganesh', role: 'user', defaultPin: '9280', icon: 'bi-person-badge-fill', color: 'info' }
 ];
 
 function Login() {
@@ -142,7 +142,7 @@ function Login() {
               </form>
 
               {/* Quick Testing Helper */}
-              <div className="p-3 bg-light rounded border">
+              {/* <div className="p-3 bg-light rounded border">
                 <div className="d-flex align-items-center justify-content-between mb-2">
                   <span className="small text-muted fw-bold">
                     <i className="bi bi-lightning-charge-fill text-warning me-1"></i>
@@ -162,7 +162,7 @@ function Login() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
             </div>
           </div>

@@ -224,10 +224,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
           </span>
         </div>
         <div className="card-body p-4">
-          <p className="text-muted small mb-4">
-            Click any date below to view member payment details, record installments, or send WhatsApp reminders.
-            {isAdmin && ' As Admin, you can also delete date records using the trash icon.'}
-          </p>
+          
 
           {collectionDates.length === 0 ? (
             <div className="text-center py-4 text-muted">

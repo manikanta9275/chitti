@@ -144,7 +144,7 @@ Thank you.`;
           <div className="modal-header bg-success text-white py-3">
             <h5 className="modal-title fw-bold d-flex align-items-center gap-2 mb-0">
               <i className="bi bi-whatsapp fs-4"></i>
-              Send WhatsApp Payment Reminder (Admin Only)
+              Send WhatsApp Payment Reminder 
             </h5>
             <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
           </div>
@@ -227,9 +227,9 @@ Thank you.`;
                   onChange={(e) => setPhoneNumber(e.target.value)}
                 />
               </div>
-              <small className="text-muted">
+              {/* <small className="text-muted">
                 10-digit Indian mobile numbers will automatically have <code>+91</code> added.
-              </small>
+              </small> */}
             </div>
 
             {/* Language Selector Tabs */}

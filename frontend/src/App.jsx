@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import MainDashboard from './components/MainDashboard';
 import CollectionDetails from './components/CollectionDetails';
 import MemberManagement from './components/MemberManagement';
@@ -23,12 +24,20 @@ const MONTHS = [
   { value: 12, label: 'December' }
 ];
 
+const TAB_INFO = {
+  dashboard: { label: 'Dashboard', icon: 'bi-speedometer2' },
+  members: { label: 'Members Directory', icon: 'bi-people' },
+  config: { label: 'Collection Dates & Amount', icon: 'bi-calendar-event' },
+  logs: { label: 'Activity Logs', icon: 'bi-clock-history' }
+};
+
 function MainApp() {
   const { user, loading, isAdmin } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(10); // Default: October 2026 per specs
   const [selectedYear, setSelectedYear] = useState(2026);
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'config' | 'logs'
   const [selectedDate, setSelectedDate] = useState(null); // When set, shows CollectionDetails for that date
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -55,54 +64,47 @@ function MainApp() {
 
   return (
     <div className="min-vh-100 d-flex flex-column bg-light">
-      <Navbar />
+      <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
 
-      {/* Global Period & Navigation Bar */}
+      {/* Left-side Navigation Sidebar Menu (hides Dashboard, Members Directory, Collection Dates & Amount, Activity Logs) */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          setSelectedDate(null);
+        }}
+      />
+
+      {/* Global Period & Breadcrumb Bar */}
       <div className="bg-white border-bottom shadow-xs py-2 sticky-top" style={{ top: '56px', zIndex: 1020 }}>
         <div className="container">
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
-            {/* Navigation Tabs (Role Matrix completely removed) */}
-            <div className="btn-group btn-group-sm flex-wrap">
+            {/* Left side: Menu trigger button & Current Active View */}
+            <div className="d-flex align-items-center gap-2">
               <button
-                className={`btn ${activeTab === 'dashboard' && !selectedDate ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => {
-                  setActiveTab('dashboard');
-                  setSelectedDate(null);
-                }}
+                className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-xs"
+                onClick={() => setSidebarOpen(true)}
+                title="Open Navigation Menu"
               >
-                <i className="bi bi-speedometer2 me-1"></i>
-                Dashboard
+                <i className="bi bi-list fs-5 lh-1"></i>
+                <span className="fw-semibold">Menu</span>
               </button>
-              <button
-                className={`btn ${activeTab === 'members' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => {
-                  setActiveTab('members');
-                  setSelectedDate(null);
-                }}
-              >
-                <i className="bi bi-people me-1"></i>
-                Members Directory
-              </button>
-              <button
-                className={`btn ${activeTab === 'config' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => {
-                  setActiveTab('config');
-                  setSelectedDate(null);
-                }}
-              >
-                <i className="bi bi-calendar-event me-1"></i>
-                Collection Dates & Amount
-              </button>
-              <button
-                className={`btn ${activeTab === 'logs' ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => {
-                  setActiveTab('logs');
-                  setSelectedDate(null);
-                }}
-              >
-                <i className="bi bi-clock-history me-1"></i>
-                Activity Logs
-              </button>
+
+              <div className="vr my-1 d-none d-sm-block text-secondary"></div>
+
+              <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 d-inline-flex align-items-center gap-1 fs-6 fw-semibold">
+                  <i className={`bi ${TAB_INFO[activeTab]?.icon || 'bi-speedometer2'}`}></i>
+                  <span>{TAB_INFO[activeTab]?.label || 'Dashboard'}</span>
+                </span>
+                {selectedDate && (
+                  <span className="badge bg-light text-dark border small">
+                    Date: {selectedDate}th
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Month & Year Filter Dropdown */}

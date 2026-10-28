@@ -722,38 +722,41 @@ const getMemberStatement = async (req, res) => {
 
       const baseActualRupees = period.actualAmountRupees || period.actualAmountPaise / 100;
       const pTxs = transactions.filter(t => t.paymentId.toString() === p._id.toString());
-      const pendingBefore = runningPendingRupees;
-      let totalDue = pendingBefore + baseActualRupees;
+      let currentPendingBefore = runningPendingRupees;
+      let currentTotalDue = currentPendingBefore + baseActualRupees;
 
       if (pTxs.length > 0) {
         pTxs.forEach(tx => {
           const paidAmt = tx.amountPaise / 100;
-          const rem = Math.max(0, totalDue - paidAmt);
+          const rem = Math.max(0, currentTotalDue - paidAmt);
           statement.push({
             period: `${period.month}/${period.year}`,
             collectionDate: p.collectionDate,
             dateOfPay: tx.createdAt,
-            pendingAmount: pendingBefore,
+            pendingAmount: currentPendingBefore,
             actualAmount: baseActualRupees,
-            totalDue: totalDue,
+            totalDue: currentTotalDue,
             paidAmount: paidAmt,
             remainingAmount: rem,
-            note: tx.notes || tx.transactionType || '—',
+            note: tx.notes || tx.transactionType || 'INSTALLMENT',
             enteredByName: tx.enteredByName || 'System'
           });
-          totalDue = rem;
+          // For subsequent transactions in the same month:
+          // The pending carry-forward has been accounted for, so pending is 0 and total due becomes previous remaining
+          currentPendingBefore = 0;
+          currentTotalDue = rem;
           runningPendingRupees = rem;
         });
       } else {
         // No transactions made yet in this month
-        const rem = totalDue;
+        const rem = currentTotalDue;
         statement.push({
           period: `${period.month}/${period.year}`,
           collectionDate: p.collectionDate,
           dateOfPay: p.createdAt,
-          pendingAmount: pendingBefore,
+          pendingAmount: currentPendingBefore,
           actualAmount: baseActualRupees,
-          totalDue: totalDue,
+          totalDue: currentTotalDue,
           paidAmount: 0,
           remainingAmount: rem,
           note: 'No payment recorded',

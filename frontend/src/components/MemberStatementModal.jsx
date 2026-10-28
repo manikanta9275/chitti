@@ -39,6 +39,55 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     window.print();
   };
 
+  const getFormattedPhone = (raw) => {
+    if (!raw) return '';
+    let digits = raw.replace(/\D/g, '');
+    if (digits.length === 10) {
+      digits = '91' + digits;
+    }
+    return digits;
+  };
+
+  const handleShareWhatsAppStatement = () => {
+    if (!statement || statement.length === 0) return;
+
+    let text = `*Chitti Fund - Payment Statement*\n`;
+    text += `👤 *Member:* ${memberName} (${memberCode})\n`;
+    if (collectionDate) text += `📅 *Collection Day:* ${collectionDate}th of every month\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    statement.forEach((item, idx) => {
+      text += `*#${idx + 1} | Period: ${item.period}*\n`;
+      if (item.dateOfPay) {
+        const d = new Date(item.dateOfPay).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+        text += `• Date: ${d}\n`;
+      }
+      text += `• Pending: ₹${item.pendingAmount.toLocaleString('en-IN')}\n`;
+      text += `• Actual: ₹${item.actualAmount.toLocaleString('en-IN')}\n`;
+      text += `• Total Due: ₹${item.totalDue.toLocaleString('en-IN')}\n`;
+      text += `• Paid: ₹${item.paidAmount.toLocaleString('en-IN')}\n`;
+      text += `• Remaining: ₹${item.remainingAmount.toLocaleString('en-IN')}\n`;
+      if (item.note && item.note !== '—') {
+        text += `• Remarks: ${item.note}\n`;
+      }
+      text += `\n`;
+    });
+
+    const lastEntry = statement[statement.length - 1];
+    text += `━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `*Current Total Balance Due: ₹${(lastEntry ? lastEntry.remainingAmount : 0).toLocaleString('en-IN')}*\n`;
+    text += `Thank you!`;
+
+    const phone = getFormattedPhone(memberPhone);
+    const encoded = encodeURIComponent(text);
+    const url = phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} tabIndex="-1">
       {/* Inline styles for professional Print to PDF layout */}
@@ -249,6 +298,15 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
               Statement calculates running balances sequentially from starting collection to current.
             </small>
             <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-success btn-sm d-inline-flex align-items-center gap-1 shadow-sm"
+                onClick={handleShareWhatsAppStatement}
+                disabled={loading || statement.length === 0}
+                title="Send full statement to WhatsApp"
+              >
+                <i className="bi bi-whatsapp"></i> Send to WhatsApp
+              </button>
               <button
                 type="button"
                 className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1 shadow-sm"

@@ -62,11 +62,13 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
 
 • సాధారణ మొత్తం (Amount): ₹${basicAmt.toLocaleString('en-IN')}
 • బోనస్ (Bonus): ₹${bonusAmt.toLocaleString('en-IN')}
-• ప్రస్తుత నెల మొత్తం (Remaining Amount): ₹${netMonthAmount.toLocaleString('en-IN')}
+• ప్రస్తుత నెల మొత్తం (This Month): ₹${netMonthAmount.toLocaleString('en-IN')}
 • పాత బకాయి (Pending Amount): ₹${pendingAmount.toLocaleString('en-IN')}
 • మొత్తం చెల్లించవలసినది (Total Amount): ₹${totalAmount.toLocaleString('en-IN')}
+• చెల్లించిన మొత్తం (Total Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
+• మిగిలిన బకాయి (Remaining Balance): ₹${balanceAmount.toLocaleString('en-IN')}
 
-దయచేసి బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
+దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
 
 ధన్యవాదాలు.`;
     }
@@ -78,11 +80,13 @@ Your Chitti Collection payment details for ${date} ${monthEn} ${year}:
 
 • Amount: ₹${basicAmt.toLocaleString('en-IN')}
 • Bonus: ₹${bonusAmt.toLocaleString('en-IN')}
-• Remaining Amount (This Month): ₹${netMonthAmount.toLocaleString('en-IN')}
+• This Month Amount: ₹${netMonthAmount.toLocaleString('en-IN')}
 • Pending Amount: ₹${pendingAmount.toLocaleString('en-IN')}
-• Total Amount: ₹${totalAmount.toLocaleString('en-IN')}
+• Total Amount Due: ₹${totalAmount.toLocaleString('en-IN')}
+• Total Paid Amount: ₹${paidAmount.toLocaleString('en-IN')}
+• Remaining Balance: ₹${balanceAmount.toLocaleString('en-IN')}
 
-Please clear the payment at your earliest convenience.
+Please clear the remaining balance at your earliest convenience.
 
 Thank you.`;
   };
@@ -174,25 +178,29 @@ Thank you.`;
               <hr className="my-2" />
 
               <div className="row g-2 text-center pt-1">
-                <div className="col-6 col-md-2">
+                <div className="col-4 col-md-2">
                   <small className="text-muted d-block" style={{ fontSize: '11px' }}>Amount</small>
                   <span className="fw-bold text-secondary">₹{basicAmt.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="col-6 col-md-2">
+                <div className="col-4 col-md-2">
                   <small className="text-muted d-block" style={{ fontSize: '11px' }}>Bonus</small>
                   <span className="fw-bold text-warning-emphasis">₹{bonusAmt.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="col-4 col-md-3">
-                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Remaining (Month)</small>
+                <div className="col-4 col-md-2">
+                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>This Month</small>
                   <span className="fw-bold text-primary">₹{netMonthAmount.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="col-4 col-md-2">
-                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Pending Amt</small>
+                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Pending</small>
                   <span className="fw-bold text-warning-emphasis">₹{pendingAmount.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="col-4 col-md-3">
-                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Total Amount</small>
-                  <span className="fw-bold text-dark fs-6">₹{totalAmount.toLocaleString('en-IN')}</span>
+                <div className="col-4 col-md-2">
+                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Total Paid</small>
+                  <span className="fw-bold text-success">₹{paidAmount.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="col-4 col-md-2">
+                  <small className="text-muted d-block" style={{ fontSize: '11px' }}>Remaining</small>
+                  <span className="fw-bold text-danger">₹{balanceAmount.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>

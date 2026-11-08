@@ -56,7 +56,7 @@ function WhatsAppModal({
   const generateTemplate = (lang) => {
     if (lang === 'te') {
       const monthTe = MONTH_NAMES_TE[month] || '';
-      return `నమస్కారం ${memberName} గారు,
+      return `నమస్కారం,
 
 ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల్లింపు వివరాలు:
 
@@ -74,7 +74,7 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
     }
 
     const monthEn = MONTH_NAMES_EN[month] || '';
-    return `Hello ${memberName},
+    return `Hello,
 
 Your payment details for ${date} ${monthEn} ${year}:
 

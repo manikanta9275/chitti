@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { saveOfflineSummary, getOfflineSummary } from '../utils/offlineSync';
+import { saveOfflineSummary, getOfflineSummary, getOfflineMembers, getOfflineConfig } from '../utils/offlineSync';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -49,16 +49,75 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
         saveOfflineSummary(selectedMonth, selectedYear, res.data);
       }
     } catch (err) {
-      // Offline fallback
-      const cached = getOfflineSummary(selectedMonth, selectedYear);
-      if (cached) {
-        setDashboardData(cached);
-      } else {
-        setFeedback({
-          type: 'danger',
-          message: err.response?.data?.message || 'Failed to fetch collection summary. Connect to network or pre-save data.'
+      // Offline fallback: load from cached summary or synthesize from offline members store
+      let cached = getOfflineSummary(selectedMonth, selectedYear);
+      const offlineMembersObj = getOfflineMembers();
+      const offlineMembersList = Array.isArray(offlineMembersObj?.members) ? offlineMembersObj.members : [];
+      const activeMembers = offlineMembersList.filter((m) => m.isActive !== false);
+
+      const cachedConfig = getOfflineConfig(selectedMonth, selectedYear);
+      let createdDates = [];
+      try {
+        const rawDates = localStorage.getItem('chitti_created_dates');
+        if (rawDates) createdDates = JSON.parse(rawDates);
+      } catch {}
+
+      // If cached summary is missing or empty, synthesize from offline members!
+      if (!cached || !cached.period || !Array.isArray(cached.datesBreakdown) || cached.summary?.totalMembers === 0) {
+        const memberDates = activeMembers.flatMap((m) => m.assignedDates || []);
+        const allDates = Array.from(new Set([...createdDates, ...(cachedConfig?.collectionDates || []), ...memberDates]))
+          .map(Number)
+          .filter((d) => !isNaN(d) && d >= 1 && d <= 31)
+          .sort((a, b) => a - b);
+
+        const actualAmount = cachedConfig?.actualAmountRupees || 4500;
+        const totalExpected = activeMembers.length * actualAmount;
+
+        const breakdown = allDates.map((d) => {
+          const mOnDate = activeMembers.filter(
+            (m) => (m.assignedDates || []).includes(d) || !m.assignedDates || m.assignedDates.length === 0
+          );
+          return {
+            date: d,
+            assignedMemberCount: mOnDate.length,
+            expectedRupees: mOnDate.length * actualAmount,
+            collectedRupees: 0,
+            balanceRupees: mOnDate.length * actualAmount,
+            paidCount: 0,
+            partialCount: 0,
+            notPaidCount: mOnDate.length,
+            members: mOnDate.map((m) => ({
+              memberId: m._id || m.memberId,
+              payableRupees: actualAmount,
+              previousPendingRupees: 0,
+              actualAmountRupees: actualAmount,
+              balanceRupees: actualAmount,
+              paymentHistory: []
+            }))
+          };
         });
+
+        cached = {
+          success: true,
+          period: {
+            id: cachedConfig?._id || `off_period_${selectedMonth}_${selectedYear}`,
+            month: selectedMonth,
+            year: selectedYear,
+            actualAmountRupees: actualAmount,
+            collectionDates: allDates
+          },
+          summary: {
+            totalMembers: activeMembers.length,
+            totalExpectedCollection: totalExpected,
+            totalAmountCollected: 0,
+            totalOutstandingBalance: totalExpected
+          },
+          datesBreakdown: breakdown
+        };
+        saveOfflineSummary(selectedMonth, selectedYear, cached);
       }
+
+      setDashboardData(cached);
     } finally {
       setLoading(false);
     }

@@ -9,6 +9,8 @@ import {
   getOfflinePayments,
   getOfflineSummary,
   saveOfflineSummary,
+  getOfflineMembers,
+  getOfflineConfig,
   isOnline
 } from '../utils/offlineSync';
 
@@ -68,25 +70,57 @@ function CollectionDetails({ month, year, date, onBack }) {
         saveOfflinePayments(month, year, date, fetched, res.data.period);
       }
     } catch (err) {
-      // Offline fallback
-      const cached = getOfflinePayments(month, year, date);
-      if (cached && Array.isArray(cached.payments)) {
-        let list = cached.payments;
-        if (search) {
-          const s = search.toLowerCase();
-          list = list.filter(p => p.memberId?.name?.toLowerCase().includes(s) || p.memberId?.phoneNumber?.includes(s));
-        }
-        if (statusFilter !== 'ALL') {
-          list = list.filter(p => p.status === statusFilter);
-        }
-        setPayments(list);
-        if (cached.period) setPeriod(cached.period);
-      } else {
-        setFeedback({
-          type: 'danger',
-          message: err.response?.data?.message || 'Failed to load collection records. Connect to network or pre-save data.'
+      // Offline fallback: load from cached payments or synthesize from offline members store!
+      let cached = getOfflinePayments(month, year, date);
+      const offlineMembersObj = getOfflineMembers();
+      const offlineMembersList = Array.isArray(offlineMembersObj?.members) ? offlineMembersObj.members : [];
+      const activeMembers = offlineMembersList.filter((m) => m.isActive !== false);
+
+      const cachedConfig = getOfflineConfig(month, year);
+      const actualAmount = cachedConfig?.actualAmountRupees || period?.actualAmountRupees || 4500;
+
+      if (!cached || !Array.isArray(cached.payments) || cached.payments.length === 0) {
+        const dNum = Number(date);
+        const membersForDate = activeMembers.filter((m) => {
+          const dates = m.assignedDates;
+          if (!dates || dates.length === 0) return true;
+          return dates.includes(dNum);
         });
+
+        const synthPayments = membersForDate.map((m) => ({
+          _id: `off_p_${m._id || m.memberId}_${date}`,
+          memberId: m,
+          collectionDate: dNum,
+          actualAmountRupees: actualAmount,
+          totalPaidRupees: 0,
+          balanceRupees: actualAmount,
+          status: 'NOT_PAID'
+        }));
+
+        const synthPeriod = cachedConfig || period || {
+          month: Number(month),
+          year: Number(year),
+          actualAmountRupees: actualAmount
+        };
+
+        cached = {
+          payments: synthPayments,
+          period: synthPeriod,
+          updatedAt: Date.now()
+        };
+        saveOfflinePayments(month, year, date, synthPayments, synthPeriod);
       }
+
+      let list = cached.payments || [];
+      if (search) {
+        const s = search.toLowerCase();
+        list = list.filter((p) => p.memberId?.name?.toLowerCase().includes(s) || p.memberId?.phoneNumber?.includes(s));
+      }
+      if (statusFilter !== 'ALL') {
+        list = list.filter((p) => p.status === statusFilter);
+      }
+      setPayments(list);
+      if (cached.period) setPeriod(cached.period);
     } finally {
       setLoading(false);
     }

@@ -182,7 +182,12 @@ function Sidebar({
         {/* Header */}
         <div className="p-3 bg-primary text-white d-flex align-items-center justify-content-between shadow-xs">
           <div className="d-flex align-items-center gap-2">
-            <i className="bi bi-wallet2 fs-4"></i>
+            <img
+              src="/me_daddy.jpeg"
+              alt="Logo"
+              className="rounded-circle shadow-xs border border-white"
+              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+            />
             <div>
               <div className="fw-bold fs-6 lh-1">Chitti Collection</div>
               <small className="text-white-50" style={{ fontSize: '11px' }}>Menu Bar</small>

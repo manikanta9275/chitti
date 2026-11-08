@@ -174,11 +174,6 @@ function CollectionDetails({ month, year, date, onBack }) {
           </h3> */}
           {/* <small className="text-muted">Shared database records • All 4 accounts can view &amp; record payments</small> */}
         </div>
-        <div className="d-flex align-items-center gap-2">
-          <button className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-sm" onClick={() => { fetchPayments(); fetchHistorical(); }} disabled={loading}>
-            <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i> Refresh
-          </button>
-        </div>
       </div>
 
       {/* Feedback */}

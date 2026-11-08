@@ -21,10 +21,15 @@ function Navbar({ onToggleSidebar, month, year, onSyncComplete }) {
   return (
     <nav className="navbar navbar-expand navbar-dark bg-primary shadow-sm sticky-top">
       <div className="container-fluid px-3">
-        {/* Left: Brand */}
+        {/* Left: Brand with me_daddy.jpeg Logo */}
         <div className="d-flex align-items-center gap-2">
           <span className="navbar-brand fw-bold d-flex align-items-center gap-2 mb-0">
-            <i className="bi bi-wallet2 fs-4"></i>
+            <img
+              src="/me_daddy.jpeg"
+              alt="Logo"
+              className="rounded-circle shadow-xs border border-white"
+              style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+            />
             <span>Chitti Collection</span>
           </span>
         </div>

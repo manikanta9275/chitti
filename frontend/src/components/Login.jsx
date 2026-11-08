@@ -47,9 +47,12 @@ function Login() {
 
           {/* App Header */}
           <div className="text-center mb-4">
-            <div className="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle p-3 shadow-sm mb-3" style={{ width: '64px', height: '64px' }}>
-              <i className="bi bi-wallet2 fs-2"></i>
-            </div>
+            <img
+              src="/me_daddy.jpeg"
+              alt="Logo"
+              className="rounded-circle shadow border border-2 border-primary mb-3"
+              style={{ width: '80px', height: '80px', objectFit: 'cover' }}
+            />
             <h3 className="fw-bold text-dark mb-1">Chitti Collection</h3>
             <p className="text-muted small mb-1">Secure PIN Authentication</p>
             {/* Online / Offline Status Badge */}

@@ -142,21 +142,17 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
           <h3 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
-            <i className="bi bi-wallet2 text-primary"></i> Chitti Dashboard
+            <img
+              src="/me_daddy.jpeg"
+              alt="Logo"
+              className="rounded-circle shadow-xs me-1"
+              style={{ width: '32px', height: '32px', objectFit: 'cover' }}
+            />
+            Chitti Dashboard
           </h3>
           <p className="text-muted small mb-0">
              Period: <strong>{monthLabel} {selectedYear}</strong> &bull; 
           </p>
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <button
-            className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-xs"
-            onClick={fetchDashboardSummary}
-            disabled={loading}
-          >
-            <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i>
-            Refresh 
-          </button>
         </div>
       </div>
 

@@ -80,6 +80,8 @@ function MainApp() {
         activeTab={activeTab}
         month={selectedMonth}
         year={selectedYear}
+        selectedDate={selectedDate}
+        onDataChanged={() => setRefreshKey((prev) => prev + 1)}
         onSelectTab={(tab) => {
           setActiveTab(tab);
           setSelectedDate(null);

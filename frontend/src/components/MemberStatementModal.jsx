@@ -19,13 +19,28 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     setError('');
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/member-statement/${memberId}`, {
-        params: { date: collectionDate || undefined }
+        params: { date: collectionDate || undefined },
+        timeout: 4000
       });
       if (res.data.success) {
-        setStatement(res.data.statement || []);
+        const stmt = res.data.statement || [];
+        setStatement(stmt);
+        try {
+          localStorage.setItem(`chitti_statement_${memberId}`, JSON.stringify(stmt));
+        } catch (e) {}
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load member statement history.');
+      // Offline fallback: load cached statement
+      try {
+        const cached = localStorage.getItem(`chitti_statement_${memberId}`);
+        if (cached) {
+          setStatement(JSON.parse(cached));
+        } else {
+          setError(err.response?.data?.message || 'Failed to load member statement history. Connect to network or pre-save data.');
+        }
+      } catch (e) {
+        setError(err.response?.data?.message || 'Failed to load member statement history.');
+      }
     } finally {
       setLoading(false);
     }

@@ -149,20 +149,6 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
-          {isAdmin && (
-            <button
-              className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 shadow-xs"
-              onClick={() => {
-                setShowResetModal(true);
-                setAdminPinInput('');
-                setResetError('');
-              }}
-              title="Completely wipe all data to start fresh"
-            >
-              <i className="bi bi-radioactive"></i>
-              <span>Del all data</span>
-            </button>
-          )}
           <button
             className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-xs"
             onClick={fetchDashboardSummary}
@@ -226,7 +212,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
       <div className="card shadow-sm border-0 mb-4">
         <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
           <h5 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
-            <i className="bi bi-calendar-range-fill text-primary"></i> Monthly Collection Dates ({monthLabel} {selectedYear})
+            <i className="bi bi-calendar-range-fill text-primary"></i> Monthly - ({monthLabel})
           </h5>
           <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
             {collectionDates.length} Dates Configured

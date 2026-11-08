@@ -308,16 +308,16 @@ function MemberManagement() {
       <div className="card-header bg-white py-3">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <div>
-            <h5 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+            {/* <h5 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
               <i className="bi bi-people-fill text-primary"></i>
               Members Directory
               <span className="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 ms-2">
                 {members.length} {selectedDateFilter !== 'ALL' ? `on ${selectedDateFilter}th` : 'Members'}
               </span>
-            </h5>
-            <small className="text-muted">
+            </h5> */}
+            {/* <small className="text-muted">
               Add your real-world members and assign them to your collection dates (e.g. 1st, 10th...)
-            </small>
+            </small> */}
           </div>
 
           <div className="d-flex align-items-center gap-2">
@@ -330,7 +330,7 @@ function MemberManagement() {
                 }}
               >
                 <i className="bi bi-calendar-plus"></i>
-                <span>Create Date (e.g. 1st)</span>
+                <span>Create Date</span>
               </button>
             )}
 
@@ -442,7 +442,7 @@ function MemberManagement() {
                 <i className="bi bi-calendar-plus text-primary fs-3 d-block mb-1"></i>
                 <span className="fw-semibold text-dark d-block">No collection dates created yet.</span>
                 <small className="text-muted d-block mb-3">
-                  Create your first date (e.g. 1st) then start adding your members.
+                  Create your first date then start adding your members.
                 </small>
                 {isAdmin && (
                   <button

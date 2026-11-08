@@ -134,11 +134,17 @@ function CollectionDetails({ month, year, date, onBack }) {
   }, [month, year, date, search, statusFilter]);
 
   const handlePaymentUpdated = (updatedPayment) => {
+    // Immediately update local React state so user sees deposit results instantly on screen!
+    if (updatedPayment && updatedPayment._id) {
+      setPayments((prev) =>
+        prev.map((p) => (p._id === updatedPayment._id ? { ...p, ...updatedPayment } : p))
+      );
+    }
     const isOff = !isOnline();
     setFeedback({
       type: 'success',
       message: isOff
-        ? 'Payment saved locally on device! Click "Update to DB" when network is available.'
+        ? 'Payment deposited and saved locally! Click "Update to DB" when network is available.'
         : 'Payment recorded successfully! Database updated.'
     });
     fetchPayments();
@@ -162,24 +168,13 @@ function CollectionDetails({ month, year, date, onBack }) {
           <button className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 mb-2 shadow-xs" onClick={onBack}>
             <i className="bi bi-arrow-left"></i> Back to Collection Dates
           </button>
-          <h3 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+          {/* <h3 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
             <i className="bi bi-calendar2-check text-primary"></i>
             Collection Details — {date} {MONTH_NAMES[month]} {year}
-          </h3>
+          </h3> */}
           {/* <small className="text-muted">Shared database records • All 4 accounts can view &amp; record payments</small> */}
         </div>
         <div className="d-flex align-items-center gap-2">
-          {isAdmin && (
-            <button
-              className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 shadow-sm"
-              onClick={handleDeleteDatePayments}
-              disabled={deletingDate || loading}
-              title="Delete all payment records for this collection date"
-            >
-              <i className="bi bi-trash-fill"></i>
-              <span>{deletingDate ? 'Deleting...' : 'Del All Payments'}</span>
-            </button>
-          )}
           <button className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-sm" onClick={() => { fetchPayments(); fetchHistorical(); }} disabled={loading}>
             <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i> Refresh
           </button>

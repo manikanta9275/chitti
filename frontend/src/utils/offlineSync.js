@@ -232,19 +232,59 @@ export const recordPaymentLocally = (payment, amount, transactionType, notes, us
   const existingTxs = getOfflineTransactions(paymentId);
   saveOfflineTransactions(paymentId, [newTx, ...existingTxs]);
 
-  // Update in cached collection payments list if stored
-  if (payment.collectionDate && payment.collectionPeriodId) {
-    const period = payment.collectionPeriodId;
-    const month = period.month || payment.month;
-    const year = period.year || payment.year;
-    if (month && year) {
-      const cached = getOfflinePayments(month, year, payment.collectionDate);
-      if (cached && Array.isArray(cached.payments)) {
-        const updatedList = cached.payments.map((p) => (p._id === paymentId ? { ...p, ...updatedPayment } : p));
-        saveOfflinePayments(month, year, payment.collectionDate, updatedList, cached.period);
+  // Update in cached collection payments list in all matching storage keys
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith(PAYMENTS_KEY)) {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.payments)) {
+            let found = false;
+            const updatedList = parsed.payments.map((p) => {
+              if (p._id === paymentId) {
+                found = true;
+                return { ...p, ...updatedPayment };
+              }
+              return p;
+            });
+            if (found) {
+              localStorage.setItem(storageKey, JSON.stringify({ ...parsed, payments: updatedList, updatedAt: Date.now() }));
+            }
+          }
+        }
       }
     }
+  } catch (e) {
+    console.warn('Error updating payment in offline cache:', e);
   }
+
+  // Update in cached dashboard summaries in localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const storageKey = localStorage.key(i);
+      if (storageKey && storageKey.startsWith(SUMMARY_KEY)) {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.data && Array.isArray(parsed.data.datesBreakdown)) {
+            parsed.data.datesBreakdown.forEach(d => {
+              if (Array.isArray(d.members)) {
+                d.members.forEach(m => {
+                  const mId = payment.memberId?._id || payment.memberId;
+                  if (m.memberId === mId || m.memberId?._id === mId) {
+                    m.balanceRupees = newBalanceRupees;
+                  }
+                });
+              }
+            });
+            localStorage.setItem(storageKey, JSON.stringify(parsed));
+          }
+        }
+      }
+    }
+  } catch (e) {}
 
   // Add to offline sync queue if requested
   if (addToQueue) {

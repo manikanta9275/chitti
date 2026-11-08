@@ -127,10 +127,10 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
   return (
     <div className="card shadow-sm border-0 mb-4">
       <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
+        {/* <h5 className="mb-0 fw-bold text-dark d-flex align-items-center gap-2">
           <i className="bi bi-calendar-event text-primary"></i>
           Collection Dates &amp; Common Amount Configuration
-        </h5>
+        </h5> */}
 
         {isAdmin ? (
           <button

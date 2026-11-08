@@ -1,11 +1,36 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { downloadAllForOffline, isOnline } from '../utils/offlineSync';
 
-function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2026 }) {
+const MONTH_NAMES = [
+  '', 'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+function Sidebar({
+  isOpen,
+  onClose,
+  activeTab,
+  onSelectTab,
+  month = 10,
+  year = 2026,
+  selectedDate = null,
+  onDataChanged
+}) {
   const { user, logout, isAdmin } = useAuth();
   const [savingOffline, setSavingOffline] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(null);
+
+  // Admin Delete Modals state
+  const [showDeletePaymentsModal, setShowDeletePaymentsModal] = useState(false);
+  const [deletingPayments, setDeletingPayments] = useState(false);
+  const [deletePaymentsDate, setDeletePaymentsDate] = useState(selectedDate || 1);
+
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [adminPinInput, setAdminPinInput] = useState('');
+  const [resettingData, setResettingData] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -59,6 +84,73 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2
       setSaveFeedback({ type: 'danger', message: 'Failed to download data for offline use.' });
     } finally {
       setSavingOffline(false);
+      setTimeout(() => setSaveFeedback(null), 4000);
+    }
+  };
+
+  // Confirm delete payments for a date/month
+  const handleConfirmDeletePayments = async () => {
+    const d = deletePaymentsDate || selectedDate || 1;
+    setDeletingPayments(true);
+    try {
+      if (isOnline()) {
+        await axios.delete(`${apiBaseUrl}/collections/date`, {
+          data: { month, year, date: d }
+        });
+      }
+      // Clean local cache for this date
+      try {
+        localStorage.removeItem(`chitti_offline_payments_${month}_${year}_${d}`);
+      } catch (e) {}
+
+      setSaveFeedback({ type: 'success', message: `Payments for ${d}th ${MONTH_NAMES[month]} deleted.` });
+      setShowDeletePaymentsModal(false);
+      if (onDataChanged) onDataChanged();
+      onClose();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete payment records.');
+    } finally {
+      setDeletingPayments(false);
+      setTimeout(() => setSaveFeedback(null), 4000);
+    }
+  };
+
+  // Confirm complete database wipe
+  const handleConfirmResetDatabase = async (e) => {
+    e.preventDefault();
+    if (!adminPinInput) {
+      setResetError('Please enter Admin PIN.');
+      return;
+    }
+    setResettingData(true);
+    setResetError('');
+    try {
+      if (isOnline()) {
+        await axios.delete(`${apiBaseUrl}/collections/reset-database`, {
+          data: { pin: adminPinInput }
+        });
+      }
+      // Clear offline cache and queue
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('chitti_offline_') || k === 'chitti_sync_queue')) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+      } catch (e) {}
+
+      setShowResetModal(false);
+      setAdminPinInput('');
+      setSaveFeedback({ type: 'success', message: 'All database data successfully wiped clean.' });
+      if (onDataChanged) onDataChanged();
+      onClose();
+    } catch (err) {
+      setResetError(err.response?.data?.message || 'Failed to wipe database. Check your PIN.');
+    } finally {
+      setResettingData(false);
       setTimeout(() => setSaveFeedback(null), 4000);
     }
   };
@@ -157,8 +249,43 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2
           </nav>
         </div>
 
+        {/* Admin Danger Zone / Delete Controls inside Sidebar */}
+        {isAdmin && (
+          <div className="px-3 py-2 border-top bg-light">
+            <div className="text-uppercase text-danger px-1 py-1 fw-bold" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>
+              <i className="bi bi-shield-exclamation me-1"></i> Admin Management
+            </div>
+            <div className="d-flex flex-column gap-1">
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs"
+                style={{ fontSize: '12px' }}
+                onClick={() => setShowDeletePaymentsModal(true)}
+                title="Delete payment records for a collection date"
+              >
+                <i className="bi bi-trash-fill"></i>
+                <span>Del All Payments</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs"
+                style={{ fontSize: '12px' }}
+                onClick={() => {
+                  setShowResetModal(true);
+                  setAdminPinInput('');
+                  setResetError('');
+                }}
+                title="Completely wipe all database data to start fresh"
+              >
+                <i className="bi bi-radioactive"></i>
+                <span>Delete All Data</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Footer with Save Offline button and Logout */}
-        <div className="p-3 border-top bg-light mt-auto">
+        <div className="p-3 border-top bg-white mt-auto">
           {saveFeedback && (
             <div className={`alert alert-${saveFeedback.type} py-1 px-2 small mb-2 text-center`} role="alert">
               {saveFeedback.message}
@@ -180,7 +307,7 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2
           {/* Logout Button */}
           <button
             type="button"
-            className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs"
+            className="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs"
             onClick={() => {
               onClose();
               logout();
@@ -191,6 +318,130 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2
           </button>
         </div>
       </aside>
+
+      {/* Delete Payments Modal */}
+      {showDeletePaymentsModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1060 }} tabIndex="-1">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-trash-fill me-2"></i> Delete Payments for Date
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowDeletePaymentsModal(false)}
+                  disabled={deletingPayments}
+                ></button>
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-secondary mb-3">
+                  Select collection date to delete all payment records and installment history for <strong>{MONTH_NAMES[month]} {year}</strong>:
+                </p>
+                <div className="mb-3">
+                  <label className="form-label small fw-semibold text-dark">Collection Date (Day of Month):</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    className="form-control form-control-lg fw-bold text-center"
+                    value={deletePaymentsDate}
+                    onChange={(e) => setDeletePaymentsDate(parseInt(e.target.value, 10) || 1)}
+                  />
+                </div>
+                <div className="alert alert-warning py-2 small mb-0">
+                  <i className="bi bi-exclamation-triangle-fill me-1"></i>
+                  This action removes all recorded payments for this date.
+                </div>
+              </div>
+              <div className="modal-footer bg-light">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowDeletePaymentsModal(false)}
+                  disabled={deletingPayments}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm fw-bold px-3"
+                  onClick={handleConfirmDeletePayments}
+                  disabled={deletingPayments}
+                >
+                  {deletingPayments ? 'Deleting...' : 'Confirm Delete Payments'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wipe All Data Modal */}
+      {showResetModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1060 }} tabIndex="-1">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content border-0 shadow">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-radioactive me-2"></i> Delete All Data (Fresh Start)
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowResetModal(false)}
+                  disabled={resettingData}
+                ></button>
+              </div>
+              <form onSubmit={handleConfirmResetDatabase}>
+                <div className="modal-body p-4">
+                  <div className="alert alert-danger py-2 small mb-3">
+                    <strong>PERMANENT DELETION:</strong> This will delete all members, payment records, collection dates, and audit history.
+                  </div>
+                  {resetError && (
+                    <div className="alert alert-warning py-2 small mb-3">
+                      {resetError}
+                    </div>
+                  )}
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold text-secondary">
+                      Enter Admin PIN to Confirm (Default: 9999) <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      className="form-control fw-bold font-monospace text-center fs-5"
+                      placeholder="••••"
+                      maxLength="8"
+                      value={adminPinInput}
+                      onChange={(e) => setAdminPinInput(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowResetModal(false)}
+                    disabled={resettingData}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-danger btn-sm fw-bold px-3"
+                    disabled={resettingData || !adminPinInput}
+                  >
+                    {resettingData ? 'Wiping Database...' : 'Confirm Wipe All Data'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

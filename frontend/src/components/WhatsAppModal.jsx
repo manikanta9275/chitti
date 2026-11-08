@@ -58,7 +58,6 @@ function WhatsAppModal({
       const monthTe = MONTH_NAMES_TE[month] || '';
       return `నమస్కారం ${memberName} గారు,
 
-*K.V.V.Satyanarayana CHITTI COLLECTION*
 ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల్లింపు వివరాలు:
 
 • సాధారణ మొత్తం (Amount): ₹${basicAmt.toLocaleString('en-IN')}
@@ -71,16 +70,12 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
 
 దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
 
-ఇట్లు,
-*కె.వి.వి. సత్యనారాయణ (K.V.V. Satyanarayana)*
-చిట్టీ కలెక్షన్ నిర్వాహకులు
-ధన్యవాదాలు.`;
+`;
     }
 
     const monthEn = MONTH_NAMES_EN[month] || '';
     return `Hello ${memberName},
 
-*K.V.V.Satyanarayana CHITTI COLLECTION*
 Your payment details for ${date} ${monthEn} ${year}:
 
 • Amount: ₹${basicAmt.toLocaleString('en-IN')}
@@ -93,10 +88,7 @@ Your payment details for ${date} ${monthEn} ${year}:
 
 Please clear the remaining balance at your earliest convenience.
 
-Regards,
-*K.V.V. Satyanarayana*
-Chitti Collection
-Thank you.`;
+`;
   };
 
   // Generate initial default message

@@ -113,22 +113,23 @@ Thank you.`;
 
   const formattedPhone = getFormattedPhone(phoneNumber);
   const encodedText = encodeURIComponent(message);
-  // Using api.whatsapp.com works seamlessly across both Laptops (WhatsApp Web) and Phones (WhatsApp App)
-  const whatsappUrl = formattedPhone
+
+  const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // Dedicated direct URLs:
+  // On laptops, web.whatsapp.com opens WhatsApp Web directly with chat loaded!
+  // On phones, api.whatsapp.com triggers the native WhatsApp app.
+  const webWhatsAppUrl = formattedPhone
+    ? `https://web.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://web.whatsapp.com/send?text=${encodedText}`;
+
+  const appWhatsAppUrl = formattedPhone
     ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
     : `https://api.whatsapp.com/send?text=${encodedText}`;
 
-  const handleOpenWhatsApp = () => {
-    if (!formattedPhone || formattedPhone.length < 10) {
-      setError('Please enter a valid phone number (at least 10 digits).');
-      return;
-    }
+  const primaryWhatsAppUrl = isMobile ? appWhatsAppUrl : webWhatsAppUrl;
 
-    setError('');
-
-    // Open synchronously in the direct click gesture so desktop popup blockers NEVER block it on laptop
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-
+  const handleLinkClick = () => {
     // Asynchronously record reminder log in the background
     axios.post(`${apiBaseUrl}/reminders/generate`, {
       paymentId: payment._id,
@@ -137,7 +138,9 @@ Thank you.`;
       console.warn('Logging reminder on backend skipped:', err);
     });
 
-    onClose();
+    setTimeout(() => {
+      onClose();
+    }, 700);
   };
 
   const handleCopyMessage = () => {
@@ -294,19 +297,38 @@ Thank you.`;
           </div>
 
           {/* Footer */}
-          <div className="modal-footer bg-light">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
+          <div className="modal-footer bg-light d-flex justify-content-between align-items-center">
+            <button type="button" className="btn btn-outline-secondary" onClick={onClose} disabled={loading}>
               Cancel
             </button>
-            <button
-              type="button"
-              className="btn btn-success fw-bold d-inline-flex align-items-center gap-2 px-4 shadow-sm"
-              onClick={handleOpenWhatsApp}
-              disabled={loading}
-            >
-              <i className="bi bi-whatsapp fs-5"></i>
-              {loading ? 'Opening...' : 'Send on WhatsApp'}
-            </button>
+            <div className="d-flex align-items-center gap-2">
+              {!isMobile && (
+                <a
+                  href={appWhatsAppUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`btn btn-outline-success d-inline-flex align-items-center gap-1 ${
+                    !formattedPhone || formattedPhone.length < 10 ? 'disabled' : ''
+                  }`}
+                  onClick={handleLinkClick}
+                  title="Open WhatsApp Desktop application"
+                >
+                  <i className="bi bi-laptop"></i> Desktop App
+                </a>
+              )}
+              <a
+                href={primaryWhatsAppUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`btn btn-success fw-bold d-inline-flex align-items-center gap-2 px-4 shadow-sm ${
+                  !formattedPhone || formattedPhone.length < 10 ? 'disabled' : ''
+                }`}
+                onClick={handleLinkClick}
+              >
+                <i className="bi bi-whatsapp fs-5"></i>
+                {isMobile ? 'Open WhatsApp & Send' : 'Open WhatsApp Web & Send'}
+              </a>
+            </div>
           </div>
         </div>
       </div>

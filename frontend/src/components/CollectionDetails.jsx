@@ -152,8 +152,7 @@ function CollectionDetails({ month, year, date, onBack }) {
     setTimeout(() => setFeedback(null), 5000);
   };
 
-  const handleWhatsAppReminder = payment => {
-    if (!isAdmin) return;
+  const handleWhatsAppReminder = (payment) => {
     setSelectedWhatsAppPayment(payment);
   };
 
@@ -348,20 +347,17 @@ function CollectionDetails({ month, year, date, onBack }) {
                             >
                               <i className="bi bi-file-earmark-spreadsheet"></i> Details
                             </button>
-                            {isAdmin && (
-                              <button
-                                className="btn btn-success d-inline-flex align-items-center gap-1"
-                                onClick={() => handleWhatsAppReminder({
-                                  ...p,
-                                  actualAmountRupees: totalAmount,
-                                  balanceRupees: balance
-                                })}
-                                title="Send WhatsApp Payment Reminder (Admin Only)"
-                                disabled={balance === 0}
-                              >
-                                <i className="bi bi-whatsapp"></i> Reminder
-                              </button>
-                            )}
+                            <button
+                              className="btn btn-success d-inline-flex align-items-center gap-1"
+                              onClick={() => handleWhatsAppReminder({
+                                ...p,
+                                actualAmountRupees: totalAmount,
+                                balanceRupees: balance
+                              })}
+                              title="Send WhatsApp Payment Details & Reminder"
+                            >
+                              <i className="bi bi-whatsapp"></i> Reminder
+                            </button>
                           </div>
                         </td>
                       </tr>

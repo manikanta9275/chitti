@@ -415,9 +415,11 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
 
     const phone = getFormattedPhone(memberPhone);
     const encoded = encodeURIComponent(text);
+    const isMobile = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const baseUrl = isMobile ? 'https://api.whatsapp.com/send' : 'https://web.whatsapp.com/send';
     const url = phone
-      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encoded}`
-      : `https://api.whatsapp.com/send?text=${encoded}`;
+      ? `${baseUrl}?phone=${phone}&text=${encoded}`
+      : `${baseUrl}?text=${encoded}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 

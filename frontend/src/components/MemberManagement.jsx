@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { saveOfflineMembers, getOfflineMembers } from '../utils/offlineSync';
+import { saveOfflineMembers, getOfflineMembers, addToSyncQueue } from '../utils/offlineSync';
 
 function MemberManagement() {
   const { user, isAdmin } = useAuth();
@@ -113,9 +113,10 @@ function MemberManagement() {
     setCreatedDates(updated);
     try {
       localStorage.setItem('chitti_created_dates', JSON.stringify(updated));
-      await axios.post(`${apiBaseUrl}/collections/add-date`, { date: day });
+      await axios.post(`${apiBaseUrl}/collections/add-date`, { date: day }, { timeout: 3000 });
     } catch (err) {
-      console.warn('Could not register date in backend period:', err);
+      console.warn('Could not register date in backend period, queued for offline sync:', err);
+      addToSyncQueue({ type: 'ADD_DATE', data: { date: day } });
     }
     setSelectedDateFilter(String(day));
     setFeedback({
@@ -155,36 +156,6 @@ function MemberManagement() {
     });
     setFormError('');
     setCustomDayInput('');
-  };
-
-  // Quick toggle star directly from table
-  const handleQuickToggleStar = async (member) => {
-    const nextVal = !member.isStarred;
-    setMembers((prev) =>
-      prev.map((m) => (m._id === member._id ? { ...m, isStarred: nextVal } : m))
-    );
-    try {
-      await axios.put(`${apiBaseUrl}/members/${member._id}`, {
-        name: member.name,
-        phoneNumber: member.phoneNumber,
-        assignedDates: member.assignedDates,
-        isStarred: nextVal
-      });
-      const cached = getOfflineMembers();
-      if (cached && Array.isArray(cached.members)) {
-        cached.members = cached.members.map((m) =>
-          m._id === member._id ? { ...m, isStarred: nextVal } : m
-        );
-        saveOfflineMembers(cached);
-      }
-      setFeedback({
-        type: 'success',
-        message: `${member.name} is now ${nextVal ? 'Starred (★ shown in tables)' : 'Unstarred (no star)'}.`
-      });
-      setTimeout(() => setFeedback(null), 3000);
-    } catch (err) {
-      console.warn('Failed to update star on server:', err);
-    }
   };
 
   const toggleModalDate = (day) => {
@@ -235,12 +206,79 @@ function MemberManagement() {
 
     setFormSubmitting(true);
     setFormError('');
+
+    const handleOfflineMemberSave = () => {
+      const cached = getOfflineMembers() || { members: [], totalActive: 0, dateCounts: {} };
+      let membersList = Array.isArray(cached.members) ? [...cached.members] : [];
+
+      if (modalMode === 'add') {
+        const tempId = `off_${Date.now()}`;
+        const newMem = {
+          _id: tempId,
+          memberId: `M-${String(membersList.length + 1).padStart(3, '0')}`,
+          name: formData.name.trim(),
+          phoneNumber: formData.phoneNumber.trim(),
+          assignedDates: formData.assignedDates,
+          isStarred: Boolean(formData.isStarred),
+          isActive: true
+        };
+        membersList.push(newMem);
+        cached.members = membersList;
+        saveOfflineMembers(cached);
+        addToSyncQueue({
+          type: 'ADD_MEMBER',
+          data: formData,
+          memberName: formData.name
+        });
+        setMembers(membersList);
+        setFeedback({
+          type: 'success',
+          message: `Member ${formData.name} added in offline mode! Will update to database when online.`
+        });
+      } else {
+        membersList = membersList.map((m) =>
+          m._id === selectedMember._id ? { ...m, ...formData, isStarred: Boolean(formData.isStarred) } : m
+        );
+        cached.members = membersList;
+        saveOfflineMembers(cached);
+        addToSyncQueue({
+          type: 'UPDATE_MEMBER',
+          memberId: selectedMember._id,
+          data: formData,
+          memberName: formData.name
+        });
+        setMembers(membersList);
+        setFeedback({
+          type: 'success',
+          message: `Member ${formData.name} updated in offline mode! Will update to database when online.`
+        });
+      }
+
+      // Persist assigned dates into createdDates list
+      const assigned = formData.assignedDates || [];
+      if (assigned.length > 0) {
+        setCreatedDates((prev) => {
+          const next = Array.from(new Set([...prev, ...assigned])).sort((a, b) => a - b);
+          try { localStorage.setItem('chitti_created_dates', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+
+      setModalMode(null);
+    };
+
+    if (!navigator.onLine) {
+      handleOfflineMemberSave();
+      setFormSubmitting(false);
+      return;
+    }
+
     try {
       if (modalMode === 'add') {
-        const res = await axios.post(`${apiBaseUrl}/members`, formData);
+        const res = await axios.post(`${apiBaseUrl}/members`, formData, { timeout: 4000 });
         setFeedback({ type: 'success', message: res.data.message });
       } else {
-        const res = await axios.put(`${apiBaseUrl}/members/${selectedMember._id}`, formData);
+        const res = await axios.put(`${apiBaseUrl}/members/${selectedMember._id}`, formData, { timeout: 4000 });
         setFeedback({ type: 'success', message: res.data.message });
         const cached = getOfflineMembers();
         if (cached && Array.isArray(cached.members)) {
@@ -264,7 +302,11 @@ function MemberManagement() {
       setModalMode(null);
       fetchMembers();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Action failed.');
+      if (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED' || !navigator.onLine) {
+        handleOfflineMemberSave();
+      } else {
+        setFormError(err.response?.data?.message || 'Action failed.');
+      }
     } finally {
       setFormSubmitting(false);
     }
@@ -585,18 +627,9 @@ function MemberManagement() {
                       </span>
                     </td>
                     <td>
-                      <div className="d-flex align-items-center gap-2">
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-link p-0 text-decoration-none"
-                            onClick={() => handleQuickToggleStar(member)}
-                            title={member.isStarred ? 'Starred member (click to unstar)' : 'Click to star member'}
-                          >
-                            <i className={`bi ${member.isStarred ? 'bi-star-fill text-warning' : 'bi-star text-black-50'} fs-5`}></i>
-                          </button>
-                        ) : member.isStarred ? (
-                          <i className="bi bi-star-fill text-warning fs-6" title="Starred Member"></i>
+                      <div className="d-flex align-items-center gap-1">
+                        {member.isStarred ? (
+                          <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
                         ) : null}
                         <span className="fw-semibold text-dark">{member.name}</span>
                       </div>

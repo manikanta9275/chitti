@@ -335,6 +335,38 @@ export const syncPendingToDatabase = async (apiBaseUrl, onProgress) => {
           remainingQueue.push(item);
           failedCount++;
         }
+      } else if (item.type === 'ADD_MEMBER') {
+        const res = await axios.post(`${apiBaseUrl}/members`, item.data);
+        if (res.data?.success) {
+          successCount++;
+        } else {
+          remainingQueue.push(item);
+          failedCount++;
+        }
+      } else if (item.type === 'UPDATE_MEMBER') {
+        const res = await axios.put(`${apiBaseUrl}/members/${item.memberId}`, item.data);
+        if (res.data?.success) {
+          successCount++;
+        } else {
+          remainingQueue.push(item);
+          failedCount++;
+        }
+      } else if (item.type === 'CONFIGURE_COLLECTION') {
+        const res = await axios.post(`${apiBaseUrl}/collections/configure`, item.data);
+        if (res.data?.success) {
+          successCount++;
+        } else {
+          remainingQueue.push(item);
+          failedCount++;
+        }
+      } else if (item.type === 'ADD_DATE') {
+        const res = await axios.post(`${apiBaseUrl}/collections/add-date`, item.data);
+        if (res.data?.success) {
+          successCount++;
+        } else {
+          remainingQueue.push(item);
+          failedCount++;
+        }
       } else {
         remainingQueue.push(item);
       }

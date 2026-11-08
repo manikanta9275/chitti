@@ -107,12 +107,35 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
     const cleanUsername = (username || '').trim().toLowerCase();
 
+    // Fast-path: If device is already offline, authenticate with offline credentials immediately
+    if (!navigator.onLine) {
+      const cred = OFFLINE_CREDENTIALS[cleanUsername];
+      if (cred && cred.pin === pin.toString()) {
+        const offlineUser = {
+          id: cred.id,
+          username: cred.username,
+          displayName: cred.displayName,
+          role: cred.role,
+          isOffline: true
+        };
+        setUser(offlineUser);
+        localStorage.setItem('chitti_user', JSON.stringify(offlineUser));
+        setLoading(false);
+        return { success: true, offline: true, message: `Logged in offline as ${cred.displayName}` };
+      } else if (cred) {
+        setLoading(false);
+        const msg = 'Invalid PIN for offline login.';
+        setAuthError(msg);
+        return { success: false, message: msg };
+      }
+    }
+
     // 1. Try online authentication
     try {
       const response = await axios.post(`${apiBaseUrl}/auth/login`, {
         username: cleanUsername,
         pin: pin.toString()
-      }, { timeout: 5000 });
+      }, { timeout: 4000 });
 
       if (response.data.success) {
         const { token: receivedToken, user: receivedUser } = response.data;

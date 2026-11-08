@@ -51,7 +51,312 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
   }, [memberId, collectionDate]);
 
   const handlePrint = () => {
-    window.print();
+    if (!statement || statement.length === 0) {
+      alert('No statement data available to print.');
+      return;
+    }
+
+    const lastEntry = statement[statement.length - 1];
+    const totalActual = statement.reduce((sum, item) => sum + (Number(item.actualAmount) || 0), 0);
+    const totalPaid = statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
+    const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
+    const printDate = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+
+    const rowsHtml = statement.map((item, idx) => {
+      const payDateFormatted = item.dateOfPay
+        ? new Date(item.dateOfPay).toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })
+        : '—';
+
+      const isClear = item.remainingAmount === 0;
+
+      return `
+        <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+          <td style="text-align: center; color: #6c757d; font-size: 11px;">${idx + 1}</td>
+          <td style="font-weight: 700; text-align: center; color: #212529;">${item.period}</td>
+          <td style="color: #495057; font-size: 11px;">${payDateFormatted}</td>
+          <td style="text-align: right; color: ${item.pendingAmount > 0 ? '#b02a37' : '#6c757d'}; font-weight: 600;">₹${(item.pendingAmount || 0).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 500;">₹${(item.actualAmount || 0).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 700; color: #0d6efd;">₹${(item.totalDue || 0).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 700; color: #198754;">₹${(item.paidAmount || 0).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 800; color: ${isClear ? '#198754' : '#dc3545'};">
+            ${isClear ? '₹0 (PAID)' : `₹${(item.remainingAmount || 0).toLocaleString('en-IN')}`}
+          </td>
+          <td style="font-size: 11px; color: #6c757d;">${item.note || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Statement_${memberName}_${memberCode}</title>
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 12px;
+            color: #212529;
+            background: #ffffff;
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .header-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #0d6efd;
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+          }
+          .logo-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+          }
+          .logo-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #0d6efd;
+          }
+          .org-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #0d6efd;
+            margin: 0;
+            letter-spacing: -0.5px;
+          }
+          .doc-subtitle {
+            font-size: 12px;
+            color: #6c757d;
+            margin: 2px 0 0 0;
+            font-weight: 500;
+          }
+          .meta-box {
+            text-align: right;
+            font-size: 11px;
+            color: #495057;
+          }
+          .info-grid {
+            display: flex;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px 16px;
+            margin-bottom: 14px;
+          }
+          .info-item label {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #6c757d;
+            font-weight: 600;
+            margin-bottom: 2px;
+          }
+          .info-item span {
+            font-size: 13px;
+            font-weight: 700;
+            color: #212529;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+          }
+          th {
+            background-color: #0d6efd !important;
+            color: #ffffff !important;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 8px 6px;
+            border: 1px solid #0b5ed7;
+          }
+          td {
+            padding: 7px 6px;
+            border: 1px solid #dee2e6;
+            font-size: 11px;
+          }
+          .summary-card {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+            margin-bottom: 16px;
+          }
+          .summary-table {
+            width: 340px;
+            border-collapse: collapse;
+          }
+          .summary-table td {
+            padding: 6px 12px;
+            border: 1px solid #dee2e6;
+            font-size: 12px;
+          }
+          .summary-table .highlight-row {
+            background-color: #fff3cd !important;
+            font-weight: 800;
+            font-size: 14px;
+          }
+          .footer-note {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #dee2e6;
+            padding-top: 10px;
+            font-size: 10px;
+            color: #6c757d;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header-box">
+          <div class="logo-title-group">
+            <img src="/me_daddy.jpeg" class="logo-img" alt="Logo" onerror="this.style.display='none'">
+            <div>
+              <h1 class="org-title">CHITTI COLLECTION MANAGEMENT</h1>
+              <p class="doc-subtitle">Member Running Ledger &amp; Payment Statement</p>
+            </div>
+          </div>
+          <div class="meta-box">
+            <div><strong>Statement Date:</strong> ${printDate}</div>
+            <div><strong>System Status:</strong> Verified Records</div>
+          </div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Member Name</label>
+            <span>${memberName}</span>
+          </div>
+          <div class="info-item">
+            <label>Member Code</label>
+            <span style="font-family: monospace;">${memberCode}</span>
+          </div>
+          <div class="info-item">
+            <label>Phone Number</label>
+            <span>${memberPhone || '—'}</span>
+          </div>
+          <div class="info-item">
+            <label>Collection Day</label>
+            <span>${collectionDate ? `${collectionDate}th of every month` : 'All Assigned Dates'}</span>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 4%;">#</th>
+              <th style="width: 8%;">Period</th>
+              <th style="width: 17%;">Date &amp; Time of Payment</th>
+              <th style="width: 11%; text-align: right;">Pending Amt</th>
+              <th style="width: 12%; text-align: right;">Actual (This Month)</th>
+              <th style="width: 12%; text-align: right;">Total Due</th>
+              <th style="width: 12%; text-align: right;">Paid Amt</th>
+              <th style="width: 12%; text-align: right;">Remaining Due</th>
+              <th style="width: 12%;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="summary-card">
+          <table class="summary-table">
+            <tr>
+              <td><strong>Total Month Dues:</strong></td>
+              <td style="text-align: right; font-weight: 600;">₹${totalActual.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr>
+              <td><strong>Total Amount Paid:</strong></td>
+              <td style="text-align: right; font-weight: 700; color: #198754;">₹${totalPaid.toLocaleString('en-IN')}</td>
+            </tr>
+            <tr class="highlight-row">
+              <td><strong>Net Balance Due:</strong></td>
+              <td style="text-align: right; color: ${finalBalance > 0 ? '#dc3545' : '#198754'};">
+                ₹${finalBalance.toLocaleString('en-IN')}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="footer-note">
+          <div>This is an official computer-generated statement from Chitti Collection System.</div>
+          <div style="font-weight: 600;">Page 1 of 1</div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Seamless print via hidden iframe (works reliably on both laptops and phones)
+    try {
+      const existing = document.getElementById('chitti-print-frame');
+      if (existing) existing.remove();
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'chitti-print-frame';
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentWindow.document;
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+
+      setTimeout(() => {
+        try {
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+        } catch (err) {
+          // Fallback to new window if iframe print is restricted
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+          }
+        }
+      }, 350);
+    } catch (e) {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      }
+    }
   };
 
   const getFormattedPhone = (raw) => {
@@ -105,63 +410,6 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
 
   return (
     <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }} tabIndex="-1">
-      {/* Inline styles for professional Print to PDF layout */}
-      <style>{`
-        @media print {
-          body {
-            visibility: hidden !important;
-            background: #fff !important;
-          }
-          #printable-member-statement, #printable-member-statement * {
-            visibility: visible !important;
-          }
-          #printable-member-statement {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            margin: 0 !important;
-            padding: 20px !important;
-            background: #fff !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          .d-print-none {
-            display: none !important;
-          }
-          .modal {
-            position: static !important;
-            display: block !important;
-            background: none !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-          .modal-dialog {
-            max-width: 100% !important;
-            margin: 0 !important;
-          }
-          .modal-content {
-            border: none !important;
-            box-shadow: none !important;
-          }
-          .table-responsive {
-            overflow: visible !important;
-          }
-          .table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-          .table th, .table td {
-            border: 1px solid #ccc !important;
-            padding: 8px 10px !important;
-            font-size: 10pt !important;
-          }
-          .table-light {
-            background-color: #f8f9fa !important;
-          }
-        }
-      `}</style>
-
       <div className="modal-dialog modal-dialog-centered modal-xl">
         <div className="modal-content border-0 shadow-lg" id="printable-member-statement">
           {/* Header */}

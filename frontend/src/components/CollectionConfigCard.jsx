@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { saveOfflineConfig, getOfflineConfig } from '../utils/offlineSync';
+import { saveOfflineConfig, getOfflineConfig, addToSyncQueue } from '../utils/offlineSync';
 
 function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) {
   const { isAdmin } = useAuth();
@@ -95,6 +95,42 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
 
     setSaving(true);
     setError('');
+
+    const saveOfflinePeriod = () => {
+      const localPeriod = {
+        _id: period?._id || `off_period_${selectedMonth}_${selectedYear}`,
+        month: selectedMonth,
+        year: selectedYear,
+        collectionDates: editDates,
+        basicAmountRupees: basicVal,
+        bonusRupees: bonusVal,
+        actualAmountRupees: Math.max(0, basicVal - bonusVal)
+      };
+      saveOfflineConfig(selectedMonth, selectedYear, localPeriod);
+      addToSyncQueue({
+        type: 'CONFIGURE_COLLECTION',
+        data: {
+          month: selectedMonth,
+          year: selectedYear,
+          collectionDates: editDates,
+          basicAmount: basicVal,
+          bonus: bonusVal,
+          actualAmount: Math.max(0, basicVal - bonusVal)
+        }
+      });
+      setPeriod(localPeriod);
+      setSuccessMsg('Collection configured offline! Will update to database when online.');
+      setShowModal(false);
+      if (onConfigUpdated) onConfigUpdated(localPeriod);
+      setTimeout(() => setSuccessMsg(''), 4000);
+    };
+
+    if (!navigator.onLine) {
+      saveOfflinePeriod();
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await axios.post(`${apiBaseUrl}/collections/configure`, {
         month: selectedMonth,
@@ -103,17 +139,22 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
         basicAmount: basicVal,
         bonus: bonusVal,
         actualAmount: Math.max(0, basicVal - bonusVal)
-      });
+      }, { timeout: 4000 });
 
       if (res.data.success) {
         setPeriod(res.data.period);
+        saveOfflineConfig(selectedMonth, selectedYear, res.data.period);
         setSuccessMsg(res.data.message);
         setShowModal(false);
         if (onConfigUpdated) onConfigUpdated(res.data.period);
         setTimeout(() => setSuccessMsg(''), 4000);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save configuration.');
+      if (!err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED' || !navigator.onLine) {
+        saveOfflinePeriod();
+      } else {
+        setError(err.response?.data?.message || 'Failed to save configuration.');
+      }
     } finally {
       setSaving(false);
     }

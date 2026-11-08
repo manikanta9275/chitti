@@ -848,12 +848,12 @@ function MemberManagement() {
                         <i className={`bi ${formData.isStarred ? 'bi-star-fill text-warning fs-4' : 'bi-star text-muted fs-4'}`}></i>
                         <div>
                           <div className="fw-bold small text-dark">
-                            {formData.isStarred ? '★ Star Enabled (Show star before name)' : 'No Star (Normal Member)'}
+                            {formData.isStarred ? '★ Star Enabled' : 'No Star'}
                           </div>
                           <small className="text-muted" style={{ fontSize: '11px' }}>
-                            {formData.isStarred
+                            {/* {formData.isStarred
                               ? 'A golden star (★) will appear at the start of this member\'s name in collection tables.'
-                              : 'Click to show a golden star before this member\'s name.'}
+                              : 'Click to show a golden star before this member\'s name.'} */}
                           </small>
                         </div>
                       </div>

@@ -57,7 +57,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     }
 
     const lastEntry = statement[statement.length - 1];
-    const totalActual = statement.reduce((sum, item) => sum + (Number(item.actualAmount) || 0), 0);
+    const totalDueSum = statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0);
     const totalPaid = statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
     const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
     const printDate = new Date().toLocaleDateString('en-IN', {
@@ -238,7 +238,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
           <div class="logo-title-group">
             <img src="/me_daddy.jpeg" class="logo-img" alt="Logo" onerror="this.style.display='none'">
             <div>
-              <h1 class="org-title">CHITTI COLLECTION MANAGEMENT</h1>
+              <h1 class="org-title">K.V.V.Satyanarayana CHITTI COLLECTION</h1>
               <p class="doc-subtitle">Member Running Ledger &amp; Payment Statement</p>
             </div>
           </div>
@@ -289,8 +289,8 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
         <div class="summary-card">
           <table class="summary-table">
             <tr>
-              <td><strong>Total Month Dues:</strong></td>
-              <td style="text-align: right; font-weight: 600;">₹${totalActual.toLocaleString('en-IN')}</td>
+              <td><strong>Total Amount:</strong></td>
+              <td style="text-align: right; font-weight: 700; color: #0d6efd;">₹${totalDueSum.toLocaleString('en-IN')}</td>
             </tr>
             <tr>
               <td><strong>Total Amount Paid:</strong></td>
@@ -371,9 +371,16 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
   const handleShareWhatsAppStatement = () => {
     if (!statement || statement.length === 0) return;
 
-    let text = `*Chitti Fund - Payment Statement*\n`;
+    const totalDueSum = statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0);
+    const totalPaidSum = statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
+    const lastEntry = statement[statement.length - 1];
+    const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
+
+    let text = `*K.V.V.Satyanarayana CHITTI COLLECTION*\n`;
+    text += `*Payment Running Statement*\n`;
     text += `👤 *Member:* ${memberName} (${memberCode})\n`;
     if (collectionDate) text += `📅 *Collection Day:* ${collectionDate}th of every month\n`;
+    if (memberPhone) text += `📞 *Phone:* ${memberPhone}\n`;
     text += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     statement.forEach((item, idx) => {
@@ -386,25 +393,31 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
         });
         text += `• Date: ${d}\n`;
       }
-      text += `• Pending: ₹${item.pendingAmount.toLocaleString('en-IN')}\n`;
-      text += `• Actual: ₹${item.actualAmount.toLocaleString('en-IN')}\n`;
-      text += `• Total Due: ₹${item.totalDue.toLocaleString('en-IN')}\n`;
-      text += `• Paid: ₹${item.paidAmount.toLocaleString('en-IN')}\n`;
-      text += `• Remaining: ₹${item.remainingAmount.toLocaleString('en-IN')}\n`;
+      text += `• Pending: ₹${(item.pendingAmount || 0).toLocaleString('en-IN')}\n`;
+      text += `• Actual: ₹${(item.actualAmount || 0).toLocaleString('en-IN')}\n`;
+      text += `• Total Due: ₹${(item.totalDue || 0).toLocaleString('en-IN')}\n`;
+      text += `• Paid: ₹${(item.paidAmount || 0).toLocaleString('en-IN')}\n`;
+      text += `• Remaining: ₹${(item.remainingAmount || 0).toLocaleString('en-IN')}\n`;
       if (item.note && item.note !== '—') {
         text += `• Remarks: ${item.note}\n`;
       }
       text += `\n`;
     });
 
-    const lastEntry = statement[statement.length - 1];
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `*Current Total Balance Due: ₹${(lastEntry ? lastEntry.remainingAmount : 0).toLocaleString('en-IN')}*\n`;
+    text += `*Total Amount:* ₹${totalDueSum.toLocaleString('en-IN')}\n`;
+    text += `*Total Amount Paid:* ₹${totalPaidSum.toLocaleString('en-IN')}\n`;
+    text += `*Net Remaining Balance Due:* ₹${finalBalance.toLocaleString('en-IN')}\n\n`;
+    text += `Regards,\n`;
+    text += `*K.V.V. Satyanarayana*\n`;
+    text += `Chitti Collection\n`;
     text += `Thank you!`;
 
     const phone = getFormattedPhone(memberPhone);
     const encoded = encodeURIComponent(text);
-    const url = phone ? `https://wa.me/${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+    const url = phone
+      ? `https://api.whatsapp.com/send?phone=${phone}&text=${encoded}`
+      : `https://api.whatsapp.com/send?text=${encoded}`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -435,7 +448,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
             <div className="d-none d-print-block border-bottom pb-3 mb-3">
               <div className="d-flex justify-content-between align-items-start">
                 <div>
-                  <h3 className="fw-bold mb-1 text-dark">Chitti Fund — Payment Statement</h3>
+                  <h3 className="fw-bold mb-1 text-dark">K.V.V.Satyanarayana CHITTI COLLECTION — Payment Statement</h3>
                   <p className="mb-0 text-secondary">
                     Member: <strong>{memberName}</strong> ({memberCode}) &bull; Phone: {memberPhone || '—'}
                   </p>
@@ -549,6 +562,23 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
                       );
                     })}
                   </tbody>
+                  <tfoot className="table-light fw-bold small">
+                    <tr className="border-top border-2">
+                      <td colSpan="5" className="text-end text-dark">
+                        Total Amount:
+                      </td>
+                      <td className="text-end text-primary">
+                        ₹{statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="text-end text-success">
+                        ₹{statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="text-end text-danger">
+                        ₹{(statement[statement.length - 1]?.remainingAmount || 0).toLocaleString('en-IN')}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}

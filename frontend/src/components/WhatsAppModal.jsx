@@ -58,6 +58,7 @@ function WhatsAppModal({
       const monthTe = MONTH_NAMES_TE[month] || '';
       return `నమస్కారం ${memberName} గారు,
 
+*K.V.V.Satyanarayana CHITTI COLLECTION*
 ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల్లింపు వివరాలు:
 
 • సాధారణ మొత్తం (Amount): ₹${basicAmt.toLocaleString('en-IN')}
@@ -70,13 +71,17 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
 
 దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
 
+ఇట్లు,
+*కె.వి.వి. సత్యనారాయణ (K.V.V. Satyanarayana)*
+చిట్టీ కలెక్షన్ నిర్వాహకులు
 ధన్యవాదాలు.`;
     }
 
     const monthEn = MONTH_NAMES_EN[month] || '';
     return `Hello ${memberName},
 
-Your Chitti Collection payment details for ${date} ${monthEn} ${year}:
+*K.V.V.Satyanarayana CHITTI COLLECTION*
+Your payment details for ${date} ${monthEn} ${year}:
 
 • Amount: ₹${basicAmt.toLocaleString('en-IN')}
 • Bonus: ₹${bonusAmt.toLocaleString('en-IN')}
@@ -88,6 +93,9 @@ Your Chitti Collection payment details for ${date} ${monthEn} ${year}:
 
 Please clear the remaining balance at your earliest convenience.
 
+Regards,
+*K.V.V. Satyanarayana*
+Chitti Collection
 Thank you.`;
   };
 
@@ -105,29 +113,31 @@ Thank you.`;
 
   const formattedPhone = getFormattedPhone(phoneNumber);
   const encodedText = encodeURIComponent(message);
-  const whatsappUrl = formattedPhone ? `https://wa.me/${formattedPhone}?text=${encodedText}` : '';
+  // Using api.whatsapp.com works seamlessly across both Laptops (WhatsApp Web) and Phones (WhatsApp App)
+  const whatsappUrl = formattedPhone
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
 
-  const handleOpenWhatsApp = async () => {
+  const handleOpenWhatsApp = () => {
     if (!formattedPhone || formattedPhone.length < 10) {
       setError('Please enter a valid phone number (at least 10 digits).');
       return;
     }
 
-    setLoading(true);
     setError('');
-    try {
-      // Notify backend to record reminder
-      await axios.post(`${apiBaseUrl}/reminders/generate`, {
-        paymentId: payment._id,
-        customPhoneNumber: phoneNumber
-      });
-    } catch (err) {
-      console.warn('Logging reminder on backend failed, continuing to open WhatsApp:', err);
-    } finally {
-      setLoading(false);
-      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      onClose();
-    }
+
+    // Open synchronously in the direct click gesture so desktop popup blockers NEVER block it on laptop
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+
+    // Asynchronously record reminder log in the background
+    axios.post(`${apiBaseUrl}/reminders/generate`, {
+      paymentId: payment._id,
+      customPhoneNumber: phoneNumber
+    }).catch((err) => {
+      console.warn('Logging reminder on backend skipped:', err);
+    });
+
+    onClose();
   };
 
   const handleCopyMessage = () => {

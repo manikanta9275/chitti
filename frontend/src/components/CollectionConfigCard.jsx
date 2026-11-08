@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { saveOfflineConfig, getOfflineConfig } from '../utils/offlineSync';
 
 function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) {
   const { isAdmin } = useAuth();
@@ -23,7 +24,8 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
     setLoading(true);
     try {
       const res = await axios.get(`${apiBaseUrl}/collections/current`, {
-        params: { month: selectedMonth, year: selectedYear }
+        params: { month: selectedMonth, year: selectedYear },
+        timeout: 4000
       });
       if (res.data.success && res.data.period) {
         setPeriod(res.data.period);
@@ -32,9 +34,19 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
         const bonus = res.data.period.bonusRupees !== undefined ? res.data.period.bonusRupees : 0;
         setEditBasic(String(basic));
         setEditBonus(String(bonus));
+        saveOfflineConfig(selectedMonth, selectedYear, res.data.period);
       }
     } catch (err) {
-      console.error('Failed to fetch collection config:', err);
+      // Offline fallback
+      const cached = getOfflineConfig(selectedMonth, selectedYear);
+      if (cached) {
+        setPeriod(cached);
+        setEditDates(cached.collectionDates || []);
+        const basic = cached.basicAmountRupees !== undefined ? cached.basicAmountRupees : 5000;
+        const bonus = cached.bonusRupees !== undefined ? cached.bonusRupees : 0;
+        setEditBasic(String(basic));
+        setEditBonus(String(bonus));
+      }
     } finally {
       setLoading(false);
     }

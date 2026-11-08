@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { saveOfflineSummary, getOfflineSummary } from '../utils/offlineSync';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -40,16 +41,24 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
     setLoading(true);
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/dashboard/summary`, {
-        params: { month: selectedMonth, year: selectedYear }
+        params: { month: selectedMonth, year: selectedYear },
+        timeout: 4000
       });
       if (res.data.success) {
         setDashboardData(res.data);
+        saveOfflineSummary(selectedMonth, selectedYear, res.data);
       }
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Failed to fetch collection summary.'
-      });
+      // Offline fallback
+      const cached = getOfflineSummary(selectedMonth, selectedYear);
+      if (cached) {
+        setDashboardData(cached);
+      } else {
+        setFeedback({
+          type: 'danger',
+          message: err.response?.data?.message || 'Failed to fetch collection summary. Connect to network or pre-save data.'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -136,7 +145,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
             <i className="bi bi-wallet2 text-primary"></i> Chitti Dashboard
           </h3>
           <p className="text-muted small mb-0">
-            Selected Period: <strong>{monthLabel} {selectedYear}</strong> &bull; Shared database for all 4 accounts
+             Period: <strong>{monthLabel} {selectedYear}</strong> &bull; 
           </p>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -151,7 +160,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
               title="Completely wipe all data to start fresh"
             >
               <i className="bi bi-radioactive"></i>
-              <span>Wipe All Data</span>
+              <span>Del all data</span>
             </button>
           )}
           <button
@@ -160,7 +169,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
             disabled={loading}
           >
             <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i>
-            Refresh Summary
+            Refresh 
           </button>
         </div>
       </div>

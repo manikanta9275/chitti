@@ -1,18 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { isOnline } from '../utils/offlineSync';
 
 const ACCOUNTS = [
   { username: 'admin', displayName: 'Admin', role: 'admin', defaultPin: '9999', icon: 'bi-shield-lock-fill', color: 'danger' },
-  // { username: 'mani', displayName: 'Mani', role: 'user', defaultPin: '9275', icon: 'bi-person-badge-fill', color: 'primary' },
-  { username: 'mavayya', displayName: 'Mavayya', role: 'user', defaultPin: '9278', icon: 'bi-person-badge-fill', color: 'success' },
-  // { username: 'ganesh', displayName: 'Ganesh', role: 'user', defaultPin: '9280', icon: 'bi-person-badge-fill', color: 'info' }
+  { username: 'mavayya', displayName: 'Mavayya', role: 'user', defaultPin: '9278', icon: 'bi-person-badge-fill', color: 'success' }
 ];
 
 function Login() {
   const { login, loading, authError, setAuthError } = useAuth();
-  const [selectedUsername, setSelectedUsername] = useState('mani');
+  const [selectedUsername, setSelectedUsername] = useState('admin');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
+  const [online, setOnline] = useState(isOnline());
+
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleSelectAccount = (account) => {
     setSelectedUsername(account.username);
@@ -29,13 +40,6 @@ function Login() {
     await login(selectedUsername, pin);
   };
 
-  // Quick fill helper for testing ease
-  const handleQuickFill = (account) => {
-    setSelectedUsername(account.username);
-    setPin(account.defaultPin);
-    if (authError) setAuthError(null);
-  };
-
   return (
     <div className="container py-5">
       <div className="row justify-content-center">
@@ -47,19 +51,26 @@ function Login() {
               <i className="bi bi-wallet2 fs-2"></i>
             </div>
             <h3 className="fw-bold text-dark mb-1">Chitti Collection</h3>
-            <p className="text-muted small">Secure PIN Authentication</p>
+            <p className="text-muted small mb-1">Secure PIN Authentication</p>
+            {/* Online / Offline Status Badge */}
+            <span className={`badge ${online ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'} px-2 py-1`}>
+              <i className={`bi ${online ? 'bi-wifi me-1' : 'bi-wifi-off me-1'}`}></i>
+              {online ? 'Online Server Available' : 'Offline Mode Active (Local Login Ready)'}
+            </span>
           </div>
 
           {/* Login Card */}
           <div className="card shadow-sm border-0">
             <div className="card-body p-4">
-              <h5 className="card-title fw-bold text-secondary mb-3">
-                <i className="bi bi-person-check-fill me-2 text-primary"></i>
-                Select Account & Enter PIN
+              <h5 className="card-title fw-bold text-secondary mb-3 d-flex align-items-center justify-content-between">
+                <span>
+                  <i className="bi bi-person-check-fill me-2 text-primary"></i>
+                  Select Account &amp; Enter PIN
+                </span>
               </h5>
 
-              {/* Account Selector Cards */}
-              <label className="form-label text-muted small fw-semibold">Choose Your Account:</label>
+              {/* Account Selector Cards - Only 2 Main Accounts: Admin & Mavayya */}
+              <label className="form-label text-muted small fw-semibold">Choose Account (Admin or Mavayya):</label>
               <div className="row g-2 mb-3">
                 {ACCOUNTS.map((account) => {
                   const isSelected = selectedUsername === account.username;
@@ -67,16 +78,16 @@ function Login() {
                     <div className="col-6" key={account.username}>
                       <button
                         type="button"
-                        className={`btn w-100 p-2 text-start d-flex align-items-center gap-2 border ${
+                        className={`btn w-100 p-3 text-start d-flex align-items-center gap-2 border rounded-3 ${
                           isSelected ? 'btn-primary text-white shadow-sm' : 'btn-light text-dark'
                         }`}
                         onClick={() => handleSelectAccount(account)}
                       >
-                        <i className={`bi ${account.icon} fs-5 text-${isSelected ? 'white' : account.color}`}></i>
+                        <i className={`bi ${account.icon} fs-4 text-${isSelected ? 'white' : account.color}`}></i>
                         <div className="text-truncate">
-                          <div className="fw-bold small">{account.displayName}</div>
+                          <div className="fw-bold fs-6">{account.displayName}</div>
                           <span className={`badge ${isSelected ? 'bg-light text-primary' : 'bg-secondary'} py-0 px-1`} style={{ fontSize: '0.65rem' }}>
-                            {account.role}
+                            {account.role.toUpperCase()}
                           </span>
                         </div>
                       </button>
@@ -137,38 +148,15 @@ function Login() {
                   ) : (
                     <i className="bi bi-box-arrow-in-right me-2"></i>
                   )}
-                  {loading ? 'Verifying PIN...' : 'Login to Chitti'}
+                  {loading ? 'Verifying PIN...' : `Login as ${selectedUsername.toUpperCase()}`}
                 </button>
               </form>
-
-              {/* Quick Testing Helper */}
-              {/* <div className="p-3 bg-light rounded border">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <span className="small text-muted fw-bold">
-                    <i className="bi bi-lightning-charge-fill text-warning me-1"></i>
-                    Quick Test Credentials:
-                  </span>
-                </div>
-                <div className="d-flex flex-wrap gap-1">
-                  {ACCOUNTS.map((acc) => (
-                    <button
-                      key={acc.username}
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary py-1 px-2"
-                      style={{ fontSize: '0.75rem' }}
-                      onClick={() => handleQuickFill(acc)}
-                    >
-                      <strong>{acc.displayName}</strong>: {acc.defaultPin}
-                    </button>
-                  ))}
-                </div>
-              </div> */}
 
             </div>
           </div>
 
           <div className="text-center mt-3 text-muted small">
-            <i className="bi bi-shield-lock me-1"></i> Passwords stored with bcrypt hashing & JWT sessions
+            <i className="bi bi-shield-lock me-1"></i> Works offline &amp; online &bull; Syncs with database automatically
           </div>
 
         </div>
@@ -178,4 +166,3 @@ function Login() {
 }
 
 export default Login;
-

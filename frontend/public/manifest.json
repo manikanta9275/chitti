@@ -1,0 +1,17 @@
+{
+  "short_name": "Chitti",
+  "name": "Chitti Collection Management",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0d6efd",
+  "theme_color": "#0d6efd",
+  "display": "standalone",
+  "orientation": "portrait"
+}
+

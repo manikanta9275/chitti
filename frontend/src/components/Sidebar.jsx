@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { downloadAllForOffline, isOnline } from '../utils/offlineSync';
 
-function Sidebar({ isOpen, onClose, activeTab, onSelectTab }) {
+function Sidebar({ isOpen, onClose, activeTab, onSelectTab, month = 10, year = 2026 }) {
   const { user, logout, isAdmin } = useAuth();
+  const [savingOffline, setSavingOffline] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState(null);
+
+  const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   const navItems = [
     {
@@ -34,6 +39,28 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab }) {
   const handleItemClick = (id) => {
     onSelectTab(id);
     onClose();
+  };
+
+  const handleSaveOffline = async () => {
+    if (!isOnline()) {
+      alert('You need an active internet connection to download and save latest records for offline use.');
+      return;
+    }
+    setSavingOffline(true);
+    setSaveFeedback(null);
+    try {
+      const res = await downloadAllForOffline(apiBaseUrl, month, year);
+      if (res.success) {
+        setSaveFeedback({ type: 'success', message: 'All records saved locally for offline use!' });
+      } else {
+        setSaveFeedback({ type: 'danger', message: res.message });
+      }
+    } catch (err) {
+      setSaveFeedback({ type: 'danger', message: 'Failed to download data for offline use.' });
+    } finally {
+      setSavingOffline(false);
+      setTimeout(() => setSaveFeedback(null), 4000);
+    }
   };
 
   return (
@@ -122,9 +149,6 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab }) {
                   <i className={`bi ${item.icon} fs-5 ${isActive ? 'text-white' : 'text-primary'}`}></i>
                   <div className="flex-grow-1">
                     <div className="lh-sm">{item.label}</div>
-                    <div className={`small fw-normal ${isActive ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '11px' }}>
-                      {item.desc}
-                    </div>
                   </div>
                   {isActive && <i className="bi bi-chevron-right text-white small"></i>}
                 </button>
@@ -133,8 +157,27 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab }) {
           </nav>
         </div>
 
-        {/* Footer with Logout */}
+        {/* Footer with Save Offline button and Logout */}
         <div className="p-3 border-top bg-light mt-auto">
+          {saveFeedback && (
+            <div className={`alert alert-${saveFeedback.type} py-1 px-2 small mb-2 text-center`} role="alert">
+              {saveFeedback.message}
+            </div>
+          )}
+
+          {/* Save Offline Button inside Sidebar */}
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs mb-2 fw-semibold"
+            onClick={handleSaveOffline}
+            disabled={savingOffline}
+            title="Download latest collection records to this device so you can work offline"
+          >
+            <i className={`bi bi-cloud-arrow-down-fill ${savingOffline ? 'spin' : ''}`}></i>
+            <span>{savingOffline ? 'Saving Data...' : 'Save Offline'}</span>
+          </button>
+
+          {/* Logout Button */}
           <button
             type="button"
             className="btn btn-outline-danger btn-sm w-100 d-flex align-items-center justify-content-center gap-2 shadow-xs"
@@ -153,4 +196,3 @@ function Sidebar({ isOpen, onClose, activeTab, onSelectTab }) {
 }
 
 export default Sidebar;
-

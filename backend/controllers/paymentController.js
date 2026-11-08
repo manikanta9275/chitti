@@ -66,8 +66,14 @@ const getCollectionPayments = async (req, res) => {
           collectionPeriodId: prevPeriod._id,
           collectionDate: dateNum
         });
-        if (prevPayment && prevPayment.balancePaise && prevPayment.balancePaise > 0) {
-          carryForwardPaise = prevPayment.balancePaise;
+        if (prevPayment) {
+          const isPrevPaid = prevPayment.status === 'PAID' || prevPayment.totalPaidPaise >= prevPayment.actualAmountPaise;
+          if (!isPrevPaid) {
+            const bal = Math.max(0, prevPayment.actualAmountPaise - prevPayment.totalPaidPaise);
+            if (bal > 0) {
+              carryForwardPaise = bal;
+            }
+          }
         }
       }
 
@@ -77,19 +83,23 @@ const getCollectionPayments = async (req, res) => {
         collectionDate: dateNum
       });
 
+      const correctActualPaise = period.actualAmountPaise + carryForwardPaise;
+
       if (!existing) {
         await Payment.create({
           memberId: member._id,
           collectionPeriodId: period._id,
           collectionDate: dateNum,
-          actualAmountPaise: period.actualAmountPaise + carryForwardPaise,
+          actualAmountPaise: correctActualPaise,
           totalPaidPaise: 0,
           status: 'NOT_PAID',
           lastUpdatedByName: 'System'
         });
       } else {
-        if (existing.totalPaidPaise === 0) {
-          existing.actualAmountPaise = period.actualAmountPaise + carryForwardPaise;
+        // ALWAYS keep actualAmountPaise in sync with period's current configured amount + carry-forward!
+        if (existing.actualAmountPaise !== correctActualPaise) {
+          existing.actualAmountPaise = correctActualPaise;
+          existing.recalculateStatus();
           await existing.save();
         }
       }
@@ -544,7 +554,10 @@ const getDashboardSummary = async (req, res) => {
           });
         }
 
-        const initialPendingRupees = Math.max(0, prevBaseActualRupees - paidInPrev);
+        const isPrevPaid = p.status === 'PAID' || p.totalPaidPaise >= p.actualAmountPaise;
+        const initialPendingRupees = isPrevPaid
+          ? 0
+          : Math.max(0, (p.actualAmountPaise - p.totalPaidPaise) / 100);
         if (initialPendingRupees > 0) {
           prevPendingMap[key] = Math.round(initialPendingRupees * 100);
         }

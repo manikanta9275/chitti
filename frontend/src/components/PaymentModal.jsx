@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import {
+  recordPaymentLocally,
+  saveOfflineTransactions,
+  getOfflineTransactions,
+  isOnline
+} from '../utils/offlineSync';
 
 function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }) {
   const { user } = useAuth();
@@ -24,12 +30,18 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }
   const fetchPaymentDetails = async () => {
     setFetchingHistory(true);
     try {
-      const res = await axios.get(`${apiBaseUrl}/payments/${payment._id}`);
+      const res = await axios.get(`${apiBaseUrl}/payments/${payment._id}`, { timeout: 4000 });
       if (res.data.success) {
-        setTransactions(res.data.transactions || []);
+        const txs = res.data.transactions || [];
+        setTransactions(txs);
+        saveOfflineTransactions(payment._id, txs);
       }
     } catch (err) {
-      console.error('Failed to load transaction history:', err);
+      // Offline fallback: load cached transactions
+      const cached = getOfflineTransactions(payment._id);
+      if (cached && cached.length > 0) {
+        setTransactions(cached);
+      }
     } finally {
       setFetchingHistory(false);
     }
@@ -50,22 +62,44 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }
 
     setLoading(true);
     setError('');
+    const txType = numAmount >= remainingRupees ? 'FULL_PAYMENT' : 'INSTALLMENT';
+
+    // If completely offline, record directly to local storage and sync queue
+    if (!isOnline() || !navigator.onLine) {
+      const updatedPayment = recordPaymentLocally(payment, numAmount, txType, notes, user, true);
+      if (onPaymentUpdated) {
+        onPaymentUpdated(updatedPayment);
+      }
+      onClose();
+      return;
+    }
+
     try {
-      const txType = numAmount >= remainingRupees ? 'FULL_PAYMENT' : 'INSTALLMENT';
       const res = await axios.post(`${apiBaseUrl}/payments/${payment._id}/transactions`, {
         amount: numAmount,
         transactionType: txType,
         notes
-      });
+      }, { timeout: 6000 });
 
       if (res.data.success) {
+        recordPaymentLocally(payment, numAmount, txType, notes, user, false);
         if (onPaymentUpdated) {
           onPaymentUpdated(res.data.payment);
         }
         onClose();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to record payment.');
+      // If network error (offline or timeout or no server response), save locally in device!
+      const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
+      if (isNetworkError) {
+        const updatedPayment = recordPaymentLocally(payment, numAmount, txType, notes, user, true);
+        if (onPaymentUpdated) {
+          onPaymentUpdated(updatedPayment);
+        }
+        onClose();
+      } else {
+        setError(err.response?.data?.message || 'Failed to record payment.');
+      }
     } finally {
       setLoading(false);
     }

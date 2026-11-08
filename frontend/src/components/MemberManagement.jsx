@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { saveOfflineMembers, getOfflineMembers } from '../utils/offlineSync';
 
 function MemberManagement() {
   const { user, isAdmin } = useAuth();
@@ -45,7 +46,7 @@ function MemberManagement() {
   const [deleteSelectedDates, setDeleteSelectedDates] = useState([]);
   const [deletingPayments, setDeletingPayments] = useState(false);
 
-  // Fetch members from backend
+  // Fetch members from backend (with offline fallback)
   const fetchMembers = async () => {
     setLoading(true);
     try {
@@ -54,18 +55,38 @@ function MemberManagement() {
           search,
           includeInactive: showInactive,
           date: selectedDateFilter !== 'ALL' ? selectedDateFilter : undefined
-        }
+        },
+        timeout: 4000
       });
       if (response.data.success) {
         setMembers(response.data.members || []);
         if (response.data.dateCounts) setDateCounts(response.data.dateCounts);
         if (response.data.totalActive !== undefined) setTotalActive(response.data.totalActive);
+        saveOfflineMembers(response.data);
       }
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Failed to load members from server.'
-      });
+      // Offline fallback
+      const cached = getOfflineMembers();
+      if (cached && Array.isArray(cached.members)) {
+        let list = cached.members;
+        if (!showInactive) list = list.filter(m => m.isActive);
+        if (search) {
+          const s = search.toLowerCase();
+          list = list.filter(m => m.name.toLowerCase().includes(s) || m.phoneNumber?.includes(s) || m.memberId?.toLowerCase().includes(s));
+        }
+        if (selectedDateFilter !== 'ALL') {
+          const d = parseInt(selectedDateFilter, 10);
+          list = list.filter(m => Array.isArray(m.assignedDates) && m.assignedDates.includes(d));
+        }
+        setMembers(list);
+        if (cached.dateCounts) setDateCounts(cached.dateCounts);
+        if (cached.totalActive !== undefined) setTotalActive(cached.totalActive);
+      } else {
+        setFeedback({
+          type: 'danger',
+          message: err.response?.data?.message || 'Failed to load members from server.'
+        });
+      }
     } finally {
       setLoading(false);
     }

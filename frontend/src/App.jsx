@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
+import SyncStatusButton from './components/SyncStatusButton';
 import MainDashboard from './components/MainDashboard';
 import CollectionDetails from './components/CollectionDetails';
 import MemberManagement from './components/MemberManagement';
@@ -38,6 +39,7 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'config' | 'logs'
   const [selectedDate, setSelectedDate] = useState(null); // When set, shows CollectionDetails for that date
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   if (loading) {
     return (
@@ -64,13 +66,20 @@ function MainApp() {
 
   return (
     <div className="min-vh-100 d-flex flex-column bg-light">
-      <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
+      <Navbar
+        onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+        month={selectedMonth}
+        year={selectedYear}
+        onSyncComplete={() => setRefreshKey((prev) => prev + 1)}
+      />
 
       {/* Left-side Navigation Sidebar Menu (hides Dashboard, Members Directory, Collection Dates & Amount, Activity Logs) */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         activeTab={activeTab}
+        month={selectedMonth}
+        year={selectedYear}
         onSelectTab={(tab) => {
           setActiveTab(tab);
           setSelectedDate(null);
@@ -107,42 +116,44 @@ function MainApp() {
               </div>
             </div>
 
-            {/* Month & Year Filter Dropdown */}
-            <div className="d-flex align-items-center gap-2 justify-content-end">
-              <label className="small text-muted fw-bold text-nowrap mb-0">
-                <i className="bi bi-calendar3 text-primary me-1"></i>Period:
-              </label>
-              <select
-                className="form-select form-select-sm fw-bold border-primary shadow-xs"
-                style={{ width: '130px' }}
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
-              >
-                {MONTHS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="form-select form-select-sm fw-bold border-primary shadow-xs"
-                style={{ width: '90px' }}
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-              >
-                {[2025, 2026, 2027, 2028].map((yr) => (
-                  <option key={yr} value={yr}>
-                    {yr}
-                  </option>
-                ))}
-              </select>
+            {/* Right side: Period Filter Dropdown */}
+            <div className="d-flex align-items-center gap-2 justify-content-end flex-wrap">
+              <div className="d-flex align-items-center gap-1">
+                <label className="small text-muted fw-bold text-nowrap mb-0 d-none d-md-inline">
+                  <i className="bi bi-calendar3 text-primary me-1"></i>Period:
+                </label>
+                <select
+                  className="form-select form-select-sm fw-bold border-primary shadow-xs"
+                  style={{ width: '120px' }}
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}
+                >
+                  {MONTHS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="form-select form-select-sm fw-bold border-primary shadow-xs"
+                  style={{ width: '85px' }}
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+                >
+                  {[2025, 2026, 2027, 2028].map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-grow-1">
+      <main className="flex-grow-1" key={refreshKey}>
         {selectedDate ? (
           <CollectionDetails
             month={selectedMonth}

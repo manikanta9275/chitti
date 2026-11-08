@@ -4,6 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import PaymentModal from './PaymentModal';
 import WhatsAppModal from './WhatsAppModal';
 import MemberStatementModal from './MemberStatementModal';
+import {
+  saveOfflinePayments,
+  getOfflinePayments,
+  getOfflineSummary,
+  saveOfflineSummary,
+  isOnline
+} from '../utils/offlineSync';
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -22,6 +29,7 @@ function CollectionDetails({ month, year, date, onBack }) {
   const [selectedWhatsAppPayment, setSelectedWhatsAppPayment] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [memberHistories, setMemberHistories] = useState({}); // memberId -> merged paymentHistory
+  const [memberPendingMap, setMemberPendingMap] = useState({}); // memberId -> previousPendingRupees
   const [deletingDate, setDeletingDate] = useState(false);
 
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -45,23 +53,40 @@ function CollectionDetails({ month, year, date, onBack }) {
     }
   };
 
-  // Fetch current month collection records
+  // Fetch current month collection records (online with local offline fallback)
   const fetchPayments = async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${apiBaseUrl}/payments`, {
-        params: { month, year, date, search, status: statusFilter !== 'ALL' ? statusFilter : undefined }
+        params: { month, year, date, search, status: statusFilter !== 'ALL' ? statusFilter : undefined },
+        timeout: 4000
       });
       if (res.data.success) {
-        setPayments(res.data.payments || []);
-        // Store period so we know the base actualAmountRupees (without carry-forward)
+        const fetched = res.data.payments || [];
+        setPayments(fetched);
         if (res.data.period) setPeriod(res.data.period);
+        saveOfflinePayments(month, year, date, fetched, res.data.period);
       }
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Failed to load collection records.'
-      });
+      // Offline fallback
+      const cached = getOfflinePayments(month, year, date);
+      if (cached && Array.isArray(cached.payments)) {
+        let list = cached.payments;
+        if (search) {
+          const s = search.toLowerCase();
+          list = list.filter(p => p.memberId?.name?.toLowerCase().includes(s) || p.memberId?.phoneNumber?.includes(s));
+        }
+        if (statusFilter !== 'ALL') {
+          list = list.filter(p => p.status === statusFilter);
+        }
+        setPayments(list);
+        if (cached.period) setPeriod(cached.period);
+      } else {
+        setFeedback({
+          type: 'danger',
+          message: err.response?.data?.message || 'Failed to load collection records. Connect to network or pre-save data.'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -71,19 +96,34 @@ function CollectionDetails({ month, year, date, onBack }) {
   const fetchHistorical = async () => {
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/dashboard/summary`, {
-        params: { month, year }
+        params: { month, year },
+        timeout: 4000
       });
       if (res.data.success) {
+        saveOfflineSummary(month, year, res.data);
         const dateObj = (res.data.datesBreakdown || []).find(d => Number(d.date) === Number(date));
         const map = {};
+        const pMap = {};
         (dateObj?.members || []).forEach(m => {
-          // paymentHistory contains merged previous + current month entries
           map[m.memberId] = m.paymentHistory || [];
+          pMap[m.memberId] = m.previousPendingRupees || 0;
         });
         setMemberHistories(map);
+        setMemberPendingMap(pMap);
       }
     } catch (e) {
-      console.error('Failed to fetch historical data', e);
+      const cachedSummary = getOfflineSummary(month, year);
+      if (cachedSummary) {
+        const dateObj = (cachedSummary.datesBreakdown || []).find(d => Number(d.date) === Number(date));
+        const map = {};
+        const pMap = {};
+        (dateObj?.members || []).forEach(m => {
+          map[m.memberId] = m.paymentHistory || [];
+          pMap[m.memberId] = m.previousPendingRupees || 0;
+        });
+        setMemberHistories(map);
+        setMemberPendingMap(pMap);
+      }
     }
   };
 
@@ -93,11 +133,17 @@ function CollectionDetails({ month, year, date, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, date, search, statusFilter]);
 
-  const handlePaymentUpdated = () => {
-    setFeedback({ type: 'success', message: 'Payment recorded successfully! Shared database refreshed.' });
+  const handlePaymentUpdated = (updatedPayment) => {
+    const isOff = !isOnline();
+    setFeedback({
+      type: 'success',
+      message: isOff
+        ? 'Payment saved locally on device! Click "Update to DB" when network is available.'
+        : 'Payment recorded successfully! Database updated.'
+    });
     fetchPayments();
     fetchHistorical();
-    setTimeout(() => setFeedback(null), 4000);
+    setTimeout(() => setFeedback(null), 5000);
   };
 
   const handleWhatsAppReminder = payment => {
@@ -120,7 +166,7 @@ function CollectionDetails({ month, year, date, onBack }) {
             <i className="bi bi-calendar2-check text-primary"></i>
             Collection Details — {date} {MONTH_NAMES[month]} {year}
           </h3>
-          <small className="text-muted">Shared database records • All 4 accounts can view &amp; record payments</small>
+          {/* <small className="text-muted">Shared database records • All 4 accounts can view &amp; record payments</small> */}
         </div>
         <div className="d-flex align-items-center gap-2">
           {isAdmin && (
@@ -131,11 +177,11 @@ function CollectionDetails({ month, year, date, onBack }) {
               title="Delete all payment records for this collection date"
             >
               <i className="bi bi-trash-fill"></i>
-              <span>{deletingDate ? 'Deleting...' : 'Delete All Payments for Date'}</span>
+              <span>{deletingDate ? 'Deleting...' : 'Del All Payments'}</span>
             </button>
           )}
           <button className="btn btn-outline-primary btn-sm d-flex align-items-center gap-2 shadow-sm" onClick={() => { fetchPayments(); fetchHistorical(); }} disabled={loading}>
-            <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i> Refresh Records
+            <i className={`bi bi-arrow-clockwise ${loading ? 'spin' : ''}`}></i> Refresh
           </button>
         </div>
       </div>
@@ -214,14 +260,27 @@ function CollectionDetails({ month, year, date, onBack }) {
                 </tr>
               ) : (
                 payments.map((p, index) => {
-                  // totalAmount = actualAmountRupees on the payment (includes carry-forward)
-                  const totalAmount = p.actualAmountRupees || p.actualAmountPaise / 100;
-                  // presentMonthAmount = base period amount (no carry-forward)
-                  const presentMonthAmount = baseMonthAmount || totalAmount;
-                  // pendingAmount = carry-forward from previous month
-                  const pendingAmount = Math.max(0, totalAmount - presentMonthAmount);
+                  const memberIdStr = p.memberId?._id || p.memberId;
+                  const histEntries = memberHistories[memberIdStr] || [];
+                  const prevEntries = histEntries.filter(h => Number(h.month) !== Number(month) || Number(h.year) !== Number(year));
+                  const lastPrev = prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null;
+
+                  // Determine pending carry-forward from previous month
+                  let pendingAmount = 0;
+                  if (memberPendingMap[memberIdStr] !== undefined) {
+                    pendingAmount = memberPendingMap[memberIdStr];
+                  } else if (lastPrev) {
+                    pendingAmount = (lastPrev.status === 'PAID' || lastPrev.balanceRupees === 0) ? 0 : Math.max(0, lastPrev.balanceRupees);
+                  } else {
+                    pendingAmount = Math.max(0, (p.actualAmountRupees || p.actualAmountPaise / 100) - (baseMonthAmount || 0));
+                  }
+
+                  // presentMonthAmount = base period amount for this month
+                  const presentMonthAmount = baseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
+                  // totalAmount = present + pending
+                  const totalAmount = presentMonthAmount + pendingAmount;
                   const paid = p.totalPaidRupees || p.totalPaidPaise / 100;
-                  const balance = Math.max(0, p.balanceRupees !== undefined ? p.balanceRupees : totalAmount - paid);
+                  const balance = Math.max(0, totalAmount - paid);
 
                   return (
                     <React.Fragment key={p._id}>
@@ -280,7 +339,12 @@ function CollectionDetails({ month, year, date, onBack }) {
                           <div className="btn-group btn-group-sm">
                             <button
                               className="btn btn-primary d-inline-flex align-items-center gap-1"
-                              onClick={() => setSelectedPayment(p)}
+                              onClick={() => setSelectedPayment({
+                                ...p,
+                                actualAmountRupees: totalAmount,
+                                balanceRupees: balance,
+                                status: balance === 0 ? 'PAID' : (paid > 0 ? 'PARTIAL' : 'NOT_PAID')
+                              })}
                               title="Record or Edit Payment"
                             >
                               <i className="bi bi-pencil-square"></i> Edit
@@ -295,7 +359,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                             {isAdmin && (
                               <button
                                 className="btn btn-success d-inline-flex align-items-center gap-1"
-                                onClick={() => handleWhatsAppReminder(p)}
+                                onClick={() => handleWhatsAppReminder({
+                                  ...p,
+                                  actualAmountRupees: totalAmount,
+                                  balanceRupees: balance
+                                })}
                                 title="Send WhatsApp Payment Reminder (Admin Only)"
                                 disabled={balance === 0}
                               >

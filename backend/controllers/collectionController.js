@@ -178,10 +178,9 @@ const configureCollectionPeriod = async (req, res) => {
       });
     }
 
-    // Synchronize existing unpaid payment records for this period with new Present Month amount
-    const unpaidPayments = await Payment.find({
-      collectionPeriodId: period._id,
-      totalPaidPaise: 0
+    // Synchronize all existing payment records for this period with new Present Month amount
+    const periodPayments = await Payment.find({
+      collectionPeriodId: period._id
     });
 
     let prevMonthNum = monthNum - 1;
@@ -192,7 +191,7 @@ const configureCollectionPeriod = async (req, res) => {
     }
     const prevPeriod = await CollectionPeriod.findOne({ month: prevMonthNum, year: prevYearNum });
 
-    for (const payment of unpaidPayments) {
+    for (const payment of periodPayments) {
       let carryForwardPaise = 0;
       if (prevPeriod) {
         const prevPayment = await Payment.findOne({
@@ -200,11 +199,18 @@ const configureCollectionPeriod = async (req, res) => {
           collectionPeriodId: prevPeriod._id,
           collectionDate: payment.collectionDate
         });
-        if (prevPayment && prevPayment.balancePaise && prevPayment.balancePaise > 0) {
-          carryForwardPaise = prevPayment.balancePaise;
+        if (prevPayment) {
+          const isPrevPaid = prevPayment.status === 'PAID' || prevPayment.totalPaidPaise >= prevPayment.actualAmountPaise;
+          if (!isPrevPaid) {
+            const bal = Math.max(0, prevPayment.actualAmountPaise - prevPayment.totalPaidPaise);
+            if (bal > 0) {
+              carryForwardPaise = bal;
+            }
+          }
         }
       }
       payment.actualAmountPaise = period.actualAmountPaise + carryForwardPaise;
+      payment.recalculateStatus();
       await payment.save();
     }
 

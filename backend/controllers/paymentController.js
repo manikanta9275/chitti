@@ -111,7 +111,7 @@ const getCollectionPayments = async (req, res) => {
     }
 
     let payments = await Payment.find(query)
-      .populate('memberId', 'name phoneNumber memberId assignedDates isActive')
+      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred')
       .populate('lastUpdatedBy', 'username displayName')
       .sort({ createdAt: 1 });
 
@@ -201,7 +201,7 @@ const addPaymentTransaction = async (req, res) => {
   try {
     const { amount, transactionType, notes } = req.body;
     const payment = await Payment.findById(req.params.id)
-      .populate('memberId', 'name memberId assignedDates')
+      .populate('memberId', 'name memberId assignedDates isStarred')
       .populate('collectionPeriodId');
     // After fetching, also determine previous period info for potential pending clearance
     const curPeriod = payment.collectionPeriodId;
@@ -424,7 +424,7 @@ const addPaymentTransaction = async (req, res) => {
 const getPaymentDetails = async (req, res) => {
   try {
     const payment = await Payment.findById(req.params.id)
-      .populate('memberId', 'name phoneNumber memberId assignedDates')
+      .populate('memberId', 'name phoneNumber memberId assignedDates isStarred')
       .populate('collectionPeriodId')
       .populate('lastUpdatedBy', 'displayName username');
 

@@ -277,9 +277,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                       <tr>
                         <td className="text-muted small">{index + 1}</td>
                         <td>
-                          <div className="d-flex align-items-center gap-2">
-                            <span className="badge bg-light text-dark border font-monospace small">{p.memberId?.memberId}</span>
-                            <span className="fw-bold text-dark"><i className="bi bi-star-fill me-1 text-warning"></i>{p.memberId?.name}</span>
+                          <div className="d-flex align-items-center gap-1">
+                            {p.memberId?.isStarred && (
+                              <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
+                            )}
+                            <span className="fw-bold text-dark">{p.memberId?.name}</span>
                           </div>
                         </td>
 

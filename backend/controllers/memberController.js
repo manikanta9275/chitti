@@ -74,7 +74,7 @@ const getMemberById = async (req, res) => {
 // @access  Admin only
 const createMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Member name is required.' });
     if (!phoneNumber || !phoneNumber.trim()) return res.status(400).json({ success: false, message: 'Phone number is required.' });
     let dates = [5];
@@ -84,7 +84,14 @@ const createMember = async (req, res) => {
     }
     const cleanPhone = phoneNumber.trim().replace(/\s+/g, '');
     const memberId = await generateNextMemberId();
-    const member = await Member.create({ memberId, name: name.trim(), phoneNumber: cleanPhone, assignedDates: dates, isActive: true });
+    const member = await Member.create({
+      memberId,
+      name: name.trim(),
+      phoneNumber: cleanPhone,
+      assignedDates: dates,
+      isStarred: Boolean(isStarred),
+      isActive: true
+    });
     await ActivityLog.create({
       userId: req.user._id,
       username: req.user.username,
@@ -93,7 +100,13 @@ const createMember = async (req, res) => {
       entityType: 'Member',
       entityId: member._id,
       previousValues: null,
-      newValues: { memberId: member.memberId, name: member.name, phoneNumber: member.phoneNumber, assignedDates: member.assignedDates }
+      newValues: {
+        memberId: member.memberId,
+        name: member.name,
+        phoneNumber: member.phoneNumber,
+        assignedDates: member.assignedDates,
+        isStarred: member.isStarred
+      }
     });
     return res.status(201).json({ success: true, message: `Member ${member.name} (${member.memberId}) added successfully for date(s): ${member.assignedDates.map(d => `${d}th`).join(', ')}.`, member });
   } catch (error) {
@@ -107,7 +120,7 @@ const createMember = async (req, res) => {
 // @access  Admin only
 const updateMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred } = req.body;
     const member = await Member.findById(req.params.id);
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found.' });
@@ -116,7 +129,8 @@ const updateMember = async (req, res) => {
     const previousValues = {
       name: member.name,
       phoneNumber: member.phoneNumber,
-      assignedDates: member.assignedDates
+      assignedDates: member.assignedDates,
+      isStarred: member.isStarred
     };
 
     if (name && name.trim()) member.name = name.trim();
@@ -128,6 +142,9 @@ const updateMember = async (req, res) => {
       if (dates.length > 0) {
         member.assignedDates = dates.sort((a, b) => a - b);
       }
+    }
+    if (typeof isStarred === 'boolean') {
+      member.isStarred = isStarred;
     }
 
     await member.save();
@@ -143,7 +160,8 @@ const updateMember = async (req, res) => {
       newValues: {
         name: member.name,
         phoneNumber: member.phoneNumber,
-        assignedDates: member.assignedDates
+        assignedDates: member.assignedDates,
+        isStarred: member.isStarred
       }
     });
 

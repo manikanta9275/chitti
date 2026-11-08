@@ -14,7 +14,15 @@ const app = express();
 
 // Connect to MongoDB Atlas and auto-seed initial accounts (members left clean for manual real-world entry)
 connectDB().then(async () => {
-  await seedUsers();
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await seedUsers();
+    } catch (seedErr) {
+      console.warn('⚠️ Seeding initial users skipped:', seedErr.message);
+    }
+  } else {
+    console.warn('⚠️ MongoDB is offline or disconnected. Initial user seeding deferred.');
+  }
 });
 
 // Middleware

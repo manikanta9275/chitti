@@ -136,7 +136,8 @@ function MemberManagement() {
     setFormData({
       name: '',
       phoneNumber: '+91',
-      assignedDates: [defaultDate]
+      assignedDates: [defaultDate],
+      isStarred: false
     });
     setFormError('');
     setCustomDayInput('');
@@ -149,10 +150,41 @@ function MemberManagement() {
     setFormData({
       name: member.name,
       phoneNumber: member.phoneNumber,
-      assignedDates: member.assignedDates && member.assignedDates.length > 0 ? member.assignedDates : [1]
+      assignedDates: member.assignedDates && member.assignedDates.length > 0 ? member.assignedDates : [1],
+      isStarred: member.isStarred !== undefined ? Boolean(member.isStarred) : true
     });
     setFormError('');
     setCustomDayInput('');
+  };
+
+  // Quick toggle star directly from table
+  const handleQuickToggleStar = async (member) => {
+    const nextVal = !member.isStarred;
+    setMembers((prev) =>
+      prev.map((m) => (m._id === member._id ? { ...m, isStarred: nextVal } : m))
+    );
+    try {
+      await axios.put(`${apiBaseUrl}/members/${member._id}`, {
+        name: member.name,
+        phoneNumber: member.phoneNumber,
+        assignedDates: member.assignedDates,
+        isStarred: nextVal
+      });
+      const cached = getOfflineMembers();
+      if (cached && Array.isArray(cached.members)) {
+        cached.members = cached.members.map((m) =>
+          m._id === member._id ? { ...m, isStarred: nextVal } : m
+        );
+        saveOfflineMembers(cached);
+      }
+      setFeedback({
+        type: 'success',
+        message: `${member.name} is now ${nextVal ? 'Starred (★ shown in tables)' : 'Unstarred (no star)'}.`
+      });
+      setTimeout(() => setFeedback(null), 3000);
+    } catch (err) {
+      console.warn('Failed to update star on server:', err);
+    }
   };
 
   const toggleModalDate = (day) => {
@@ -210,6 +242,13 @@ function MemberManagement() {
       } else {
         const res = await axios.put(`${apiBaseUrl}/members/${selectedMember._id}`, formData);
         setFeedback({ type: 'success', message: res.data.message });
+        const cached = getOfflineMembers();
+        if (cached && Array.isArray(cached.members)) {
+          cached.members = cached.members.map((m) =>
+            m._id === selectedMember._id ? { ...m, ...formData } : m
+          );
+          saveOfflineMembers(cached);
+        }
       }
 
       // Persist assigned dates into createdDates list
@@ -506,10 +545,10 @@ function MemberManagement() {
             <thead className="table-light">
               <tr>
                 <th scope="col" style={{ width: '10%' }}>ID</th>
-                <th scope="col" style={{ width: '28%' }}>Member Name</th>
-                <th scope="col" style={{ width: '20%' }}>Phone Number</th>
+                <th scope="col" style={{ width: '28%' }}>Name</th>
+                <th scope="col" style={{ width: '20%' }}>Ph.no</th>
                 <th scope="col" className="text-center" style={{ width: '20%' }}>
-                  Assigned Collection Date
+                  Coll Date
                 </th>
                 <th scope="col" className="text-center" style={{ width: '10%' }}>Status</th>
                 <th scope="col" className="text-end" style={{ width: '12%' }}>Actions</th>
@@ -546,11 +585,25 @@ function MemberManagement() {
                       </span>
                     </td>
                     <td>
-                      <div className="fw-semibold text-dark">{member.name}</div>
+                      <div className="d-flex align-items-center gap-2">
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link p-0 text-decoration-none"
+                            onClick={() => handleQuickToggleStar(member)}
+                            title={member.isStarred ? 'Starred member (click to unstar)' : 'Click to star member'}
+                          >
+                            <i className={`bi ${member.isStarred ? 'bi-star-fill text-warning' : 'bi-star text-black-50'} fs-5`}></i>
+                          </button>
+                        ) : member.isStarred ? (
+                          <i className="bi bi-star-fill text-warning fs-6" title="Starred Member"></i>
+                        ) : null}
+                        <span className="fw-semibold text-dark">{member.name}</span>
+                      </div>
                     </td>
                     <td>
                       <span className="text-muted small">
-                        <i className="bi bi-telephone me-1"></i>
+                        {/* <i className="bi bi-telephone me-1"></i> */}
                         {member.phoneNumber}
                       </span>
                     </td>
@@ -744,6 +797,45 @@ function MemberManagement() {
                     <small className="text-muted">
                       Include country code (e.g., +91 for India) for WhatsApp links.
                     </small>
+                  </div>
+
+                  {/* Star Member (★ at start of name) */}
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold text-secondary d-block">
+                      Member Star Status
+                    </label>
+                    <div
+                      className={`p-3 rounded-3 border d-flex align-items-center justify-content-between ${
+                        formData.isStarred ? 'bg-warning-subtle border-warning' : 'bg-light border-secondary-subtle'
+                      }`}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setFormData({ ...formData, isStarred: !formData.isStarred })}
+                    >
+                      <div className="d-flex align-items-center gap-2">
+                        <i className={`bi ${formData.isStarred ? 'bi-star-fill text-warning fs-4' : 'bi-star text-muted fs-4'}`}></i>
+                        <div>
+                          <div className="fw-bold small text-dark">
+                            {formData.isStarred ? '★ Star Enabled (Show star before name)' : 'No Star (Normal Member)'}
+                          </div>
+                          <small className="text-muted" style={{ fontSize: '11px' }}>
+                            {formData.isStarred
+                              ? 'A golden star (★) will appear at the start of this member\'s name in collection tables.'
+                              : 'Click to show a golden star before this member\'s name.'}
+                          </small>
+                        </div>
+                      </div>
+                      <div className="form-check form-switch m-0">
+                        <input
+                          className="form-check-input cursor-pointer fs-5"
+                          type="checkbox"
+                          role="switch"
+                          id="memberStarSwitch"
+                          checked={Boolean(formData.isStarred)}
+                          onChange={(e) => setFormData({ ...formData, isStarred: e.target.checked })}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Assign Collection Date(s) */}

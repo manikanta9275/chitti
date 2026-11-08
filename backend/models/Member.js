@@ -34,6 +34,11 @@ const memberSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
       index: true
+    },
+    // Optional star in start of member name (toggleable in Members Directory)
+    isStarred: {
+      type: Boolean,
+      default: false
     }
   },
   {

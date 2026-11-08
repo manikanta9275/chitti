@@ -148,7 +148,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
               className="rounded-circle shadow-xs me-1"
               style={{ width: '32px', height: '32px', objectFit: 'cover' }}
             />
-            Chitti Dashboard
+            Dashboard
           </h3>
           <p className="text-muted small mb-0">
              Period: <strong>{monthLabel} {selectedYear}</strong> &bull; 

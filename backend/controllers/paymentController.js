@@ -8,22 +8,17 @@ const ActivityLog = require('../models/ActivityLog');
 // Helper to get or initialize a collection period
 const getOrInitPeriod = async (month, year, userId) => {
   let period = await CollectionPeriod.findOne({ month, year });
-  const memberDates = await Member.distinct('assignedDates', { isActive: true });
-  const activeDates = (memberDates && memberDates.length > 0) ? memberDates.sort((a, b) => a - b) : [];
 
   if (!period) {
     period = await CollectionPeriod.create({
       month,
       year,
-      collectionDates: activeDates,
+      collectionDates: [],
       basicAmountPaise: 500000, // ₹5,000
       bonusPaise: 0,
       actualAmountPaise: 500000, // ₹5,000
       createdBy: userId
     });
-  } else if (activeDates.length > 0 && (!period.collectionDates || period.collectionDates.length === 0)) {
-    period.collectionDates = activeDates;
-    await period.save();
   }
   return period;
 };
@@ -78,6 +73,41 @@ const getCollectionPayments = async (req, res) => {
       existingPaymentsMap.set(p.memberId.toString(), p);
     });
 
+    const isDateConfigured = period.collectionDates && period.collectionDates.includes(dateNum);
+
+    // If this date is NOT configured in this period and has no existing payments:
+    // DO NOT auto-generate fake payments! Return empty result with notConfigured flag.
+    if (!isDateConfigured && existingPayments.length === 0) {
+      return res.status(200).json({
+        success: true,
+        notConfigured: true,
+        message: `Chitti for ${dateNum}th was not started or active in ${monthNum}/${yearNum}.`,
+        period: {
+          id: period._id,
+          month: period.month,
+          year: period.year,
+          basicAmountRupees: period.basicAmountRupees !== undefined ? period.basicAmountRupees : 5000,
+          bonusRupees: period.bonusRupees !== undefined ? period.bonusRupees : 0,
+          actualAmountRupees: period.actualAmountRupees || 5000,
+          collectionDates: period.collectionDates || []
+        },
+        collectionDate: dateNum,
+        summary: {
+          totalMembers: 0,
+          actualAmountRupees: period.actualAmountRupees || 5000,
+          totalExpectedRupees: 0,
+          totalCollectedRupees: 0,
+          totalBalanceRupees: 0,
+          paidCount: 0,
+          partialCount: 0,
+          notPaidCount: 0
+        },
+        count: 0,
+        memberPendingMap: {},
+        payments: []
+      });
+    }
+
     const newPaymentsToInsert = [];
     const bulkUpdates = [];
     const memberPendingMap = {};
@@ -110,7 +140,7 @@ const getCollectionPayments = async (req, res) => {
       const correctActualPaise = period.actualAmountPaise + carryForwardPaise;
       const existing = existingPaymentsMap.get(mIdStr);
 
-      if (!existing) {
+      if (!existing && isDateConfigured) {
         newPaymentsToInsert.push({
           memberId: member._id,
           collectionPeriodId: period._id,
@@ -120,7 +150,7 @@ const getCollectionPayments = async (req, res) => {
           status: 'NOT_PAID',
           lastUpdatedByName: 'System'
         });
-      } else if (existing.actualAmountPaise !== correctActualPaise) {
+      } else if (existing && existing.actualAmountPaise !== correctActualPaise) {
         existing.actualAmountPaise = correctActualPaise;
         existing.recalculateStatus();
         bulkUpdates.push(existing.save());
@@ -495,7 +525,7 @@ const getDashboardSummary = async (req, res) => {
     const memberDates = Array.from(new Set(activeMembers.flatMap(m => m.assignedDates || []))).filter(Boolean);
     const collectionDates = (period.collectionDates && period.collectionDates.length > 0)
       ? period.collectionDates
-      : (memberDates || []);
+      : [];
     const actualAmountRupees = period.actualAmountRupees || period.actualAmountPaise / 100;
 
     const allPeriodPayments = await Payment.find({ collectionPeriodId: period._id }).populate('memberId', 'assignedDates isActive');

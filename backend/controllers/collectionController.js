@@ -45,16 +45,12 @@ const getCurrentCollectionPeriod = async (req, res) => {
       year: currentYear
     });
 
-    const Member = require('../models/Member');
-    const memberDates = await Member.distinct('assignedDates', { isActive: true });
-    const initialDates = (memberDates && memberDates.length > 0) ? memberDates.sort((a, b) => a - b) : [];
-
-    // If this month is not yet initialized in DB, create default configuration
+    // If this month is not yet initialized in DB, create default unconfigured period (no dates until admin configures)
     if (!period) {
       period = await CollectionPeriod.create({
         month: currentMonth,
         year: currentYear,
-        collectionDates: initialDates,
+        collectionDates: [],
         basicAmountPaise: 500000, // ₹5,000
         bonusPaise: 0,
         actualAmountPaise: 500000, // ₹5,000
@@ -71,19 +67,12 @@ const getCurrentCollectionPeriod = async (req, res) => {
         newValues: {
           month: currentMonth,
           year: currentYear,
-          collectionDates: initialDates,
+          collectionDates: [],
           basicAmountRupees: 5000,
           bonusRupees: 0,
           actualAmountRupees: 5000
         }
       });
-    } else if (memberDates && memberDates.length > 0) {
-      // Keep period dates in sync with active member dates
-      const merged = Array.from(new Set([...(period.collectionDates || []), ...memberDates])).sort((a, b) => a - b);
-      if (merged.length !== (period.collectionDates || []).length) {
-        period.collectionDates = merged;
-        await period.save();
-      }
     }
 
     return res.status(200).json({

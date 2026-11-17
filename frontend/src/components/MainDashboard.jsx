@@ -62,10 +62,9 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
         if (rawDates) createdDates = JSON.parse(rawDates);
       } catch {}
 
-      // If cached summary is missing or empty, synthesize from offline members!
+      // If cached summary is missing or empty, synthesize only from configured collection dates
       if (!cached || !cached.period || !Array.isArray(cached.datesBreakdown) || cached.summary?.totalMembers === 0) {
-        const memberDates = activeMembers.flatMap((m) => m.assignedDates || []);
-        const allDates = Array.from(new Set([...createdDates, ...(cachedConfig?.collectionDates || []), ...memberDates]))
+        const allDates = Array.from(new Set([...createdDates, ...(cachedConfig?.collectionDates || [])]))
           .map(Number)
           .filter((d) => !isNaN(d) && d >= 1 && d <= 31)
           .sort((a, b) => a - b);

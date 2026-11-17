@@ -34,6 +34,7 @@ function CollectionDetails({ month, year, date, onBack }) {
   const [memberPendingMap, setMemberPendingMap] = useState({}); // memberId -> previousPendingRupees
   const [deletingDate, setDeletingDate] = useState(false);
   const [expandedMembers, setExpandedMembers] = useState({});
+  const [notConfiguredMsg, setNotConfiguredMsg] = useState('');
 
   const toggleMemberExpand = (id) => {
     setExpandedMembers((prev) => ({
@@ -72,22 +73,37 @@ function CollectionDetails({ month, year, date, onBack }) {
         timeout: 10000
       });
       if (res.data.success) {
-        const fetched = res.data.payments || [];
-        setPayments(fetched);
-        if (res.data.period) setPeriod(res.data.period);
-        if (res.data.memberPendingMap) {
-          setMemberPendingMap(res.data.memberPendingMap);
+        if (res.data.notConfigured) {
+          setPayments([]);
+          if (res.data.period) setPeriod(res.data.period);
+          setNotConfiguredMsg(res.data.message || `Chitti for ${date}th was not started or active in ${MONTH_NAMES[month]} ${year}.`);
+        } else {
+          setNotConfiguredMsg('');
+          const fetched = res.data.payments || [];
+          setPayments(fetched);
+          if (res.data.period) setPeriod(res.data.period);
+          if (res.data.memberPendingMap) {
+            setMemberPendingMap(res.data.memberPendingMap);
+          }
+          saveOfflinePayments(month, year, date, fetched, res.data.period);
         }
-        saveOfflinePayments(month, year, date, fetched, res.data.period);
       }
     } catch (err) {
-      // Offline fallback: load from cached payments or synthesize from offline members store!
+      // Offline fallback: load from cached payments
       let cached = getOfflinePayments(month, year, date);
+      const cachedConfig = getOfflineConfig(month, year);
+      const isDateInConfig = cachedConfig?.collectionDates?.includes(Number(date));
+
+      if (!isDateInConfig && (!cached || !cached.payments || cached.payments.length === 0)) {
+        setPayments([]);
+        setNotConfiguredMsg(`Chitti for ${date}th was not started or active in ${MONTH_NAMES[month]} ${year}.`);
+        return;
+      }
+
+      setNotConfiguredMsg('');
       const offlineMembersObj = getOfflineMembers();
       const offlineMembersList = Array.isArray(offlineMembersObj?.members) ? offlineMembersObj.members : [];
       const activeMembers = offlineMembersList.filter((m) => m.isActive !== false);
-
-      const cachedConfig = getOfflineConfig(month, year);
       const actualAmount = cachedConfig?.actualAmountRupees || period?.actualAmountRupees || 4500;
 
       if (!cached || !Array.isArray(cached.payments) || cached.payments.length === 0) {
@@ -287,28 +303,44 @@ function CollectionDetails({ month, year, date, onBack }) {
         </div>
       )}
 
-      {/* Search & Filter */}
-      <div className="card shadow-sm border-0 mb-4">
-        <div className="card-body p-3">
-          <div className="row g-2 align-items-center">
-            <div className="col-12 col-md-6">
-              <div className="input-group input-group-sm">
-                <span className="input-group-text bg-light"><i className="bi bi-search text-muted"></i></span>
-                <input type="text" className="form-control" placeholder="Search by member name or phone..." value={search} onChange={e => setSearch(e.target.value)} />
-                {search && <button className="btn btn-outline-secondary" onClick={() => setSearch('')}>Clear</button>}
-              </div>
-            </div>
-            <div className="col-12 col-md-6 d-flex justify-content-md-end">
-              <div className="btn-group btn-group-sm w-100 w-md-auto">
-                <button className={`btn ${statusFilter === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('ALL')}>All</button>
-                <button className={`btn ${statusFilter === 'PAID' ? 'btn-success' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('PAID')}>Paid</button>
-                <button className={`btn ${statusFilter === 'PARTIAL' ? 'btn-warning text-dark' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('PARTIAL')}>Partial</button>
-                <button className={`btn ${statusFilter === 'NOT_PAID' ? 'btn-danger' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('NOT_PAID')}>Not Paid</button>
+      {/* If this collection date was not started / active in this month */}
+      {notConfiguredMsg ? (
+        <div className="card shadow-sm border-0 border-start border-warning border-4 p-4 text-center my-4">
+          <div className="py-4">
+            <i className="bi bi-exclamation-triangle-fill text-warning display-4 d-block mb-3"></i>
+            <h4 className="fw-bold text-dark mb-2">{notConfiguredMsg}</h4>
+            <p className="text-secondary mb-4 mx-auto" style={{ maxWidth: '480px' }}>
+              No collection records exist for <strong>{date}th {MONTH_NAMES[month]} {year}</strong> because the chitti for this date was not active or started in this month.
+            </p>
+            <button className="btn btn-outline-secondary px-4 fw-semibold" onClick={onBack}>
+              <i className="bi bi-arrow-left me-2"></i> Return to Collection Dates
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Search & Filter */}
+          <div className="card shadow-sm border-0 mb-4">
+            <div className="card-body p-3">
+              <div className="row g-2 align-items-center">
+                <div className="col-12 col-md-6">
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text bg-light"><i className="bi bi-search text-muted"></i></span>
+                    <input type="text" className="form-control" placeholder="Search by member name or phone..." value={search} onChange={e => setSearch(e.target.value)} />
+                    {search && <button className="btn btn-outline-secondary" onClick={() => setSearch('')}>Clear</button>}
+                  </div>
+                </div>
+                <div className="col-12 col-md-6 d-flex justify-content-md-end">
+                  <div className="btn-group btn-group-sm w-100 w-md-auto">
+                    <button className={`btn ${statusFilter === 'ALL' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('ALL')}>All</button>
+                    <button className={`btn ${statusFilter === 'PAID' ? 'btn-success' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('PAID')}>Paid</button>
+                    <button className={`btn ${statusFilter === 'PARTIAL' ? 'btn-warning text-dark' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('PARTIAL')}>Partial</button>
+                    <button className={`btn ${statusFilter === 'NOT_PAID' ? 'btn-danger' : 'btn-outline-secondary'}`} onClick={() => setStatusFilter('NOT_PAID')}>Not Paid</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Mobile Phone View (Only displays Member Name & Total Amount; expands on clicking name/row) */}
       <div className="d-md-none mb-4">
@@ -610,6 +642,8 @@ function CollectionDetails({ month, year, date, onBack }) {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Modals */}
       {selectedPayment && (

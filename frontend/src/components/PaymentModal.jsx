@@ -83,6 +83,9 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
       if (onPaymentUpdated) {
         onPaymentUpdated(updatedPayment);
       }
+      if (onAfterPayment) {
+        onAfterPayment(updatedPayment);
+      }
       onClose();
       return;
     }
@@ -111,6 +114,9 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
         const updatedPayment = recordPaymentLocally(payment, numAmount, txType, notes, user, true);
         if (onPaymentUpdated) {
           onPaymentUpdated(updatedPayment);
+        }
+        if (onAfterPayment) {
+          onAfterPayment(updatedPayment);
         }
         onClose();
       } else {

@@ -38,7 +38,14 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   const fetchDashboardSummary = async () => {
-    setLoading(true);
+    // 1. FAST RESPONSE (0ms delay): Load cached summary immediately so UI renders without delay
+    const initialCached = getOfflineSummary(selectedMonth, selectedYear);
+    if (initialCached && initialCached.period) {
+      setDashboardData(initialCached);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/dashboard/summary`, {
         params: { month: selectedMonth, year: selectedYear },

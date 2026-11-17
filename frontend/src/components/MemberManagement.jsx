@@ -48,7 +48,27 @@ function MemberManagement() {
 
   // Fetch members from backend (with offline fallback)
   const fetchMembers = async () => {
-    setLoading(true);
+    // 1. FAST RESPONSE (0ms delay): Load cached members immediately
+    const initialCached = getOfflineMembers();
+    if (initialCached && Array.isArray(initialCached.members) && initialCached.members.length > 0) {
+      let list = initialCached.members;
+      if (!showInactive) list = list.filter(m => m.isActive);
+      if (search) {
+        const s = search.toLowerCase();
+        list = list.filter(m => m.name.toLowerCase().includes(s) || m.phoneNumber?.includes(s) || m.memberId?.toLowerCase().includes(s));
+      }
+      if (selectedDateFilter !== 'ALL') {
+        const d = parseInt(selectedDateFilter, 10);
+        list = list.filter(m => Array.isArray(m.assignedDates) && m.assignedDates.includes(d));
+      }
+      setMembers(list);
+      if (initialCached.dateCounts) setDateCounts(initialCached.dateCounts);
+      if (initialCached.totalActive !== undefined) setTotalActive(initialCached.totalActive);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const response = await axios.get(`${apiBaseUrl}/members`, {
         params: {
@@ -56,7 +76,7 @@ function MemberManagement() {
           includeInactive: showInactive,
           date: selectedDateFilter !== 'ALL' ? selectedDateFilter : undefined
         },
-        timeout: 4000
+        timeout: 8000
       });
       if (response.data.success) {
         setMembers(response.data.members || []);

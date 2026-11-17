@@ -66,7 +66,24 @@ function CollectionDetails({ month, year, date, onBack }) {
 
   // Fetch current month collection records (online with local offline fallback)
   const fetchPayments = async () => {
-    setLoading(true);
+    // 1. FAST RESPONSE (0ms delay): Render cached records immediately so UI is instant
+    const initialCached = getOfflinePayments(month, year, date);
+    if (initialCached && Array.isArray(initialCached.payments) && initialCached.payments.length > 0) {
+      let list = initialCached.payments;
+      if (search) {
+        const s = search.toLowerCase();
+        list = list.filter((p) => p.memberId?.name?.toLowerCase().includes(s) || p.memberId?.phoneNumber?.includes(s));
+      }
+      if (statusFilter !== 'ALL') {
+        list = list.filter((p) => p.status === statusFilter);
+      }
+      setPayments(list);
+      if (initialCached.period) setPeriod(initialCached.period);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       const res = await axios.get(`${apiBaseUrl}/payments`, {
         params: { month, year, date, search, status: statusFilter !== 'ALL' ? statusFilter : undefined },

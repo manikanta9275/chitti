@@ -88,6 +88,10 @@ paymentSchema.index(
   { unique: true }
 );
 
+// High performance query indexes for collection and dashboard lookups
+paymentSchema.index({ collectionPeriodId: 1, collectionDate: 1 });
+paymentSchema.index({ collectionPeriodId: 1, status: 1 });
+
 const Payment = mongoose.model('Payment', paymentSchema);
 
 module.exports = Payment;

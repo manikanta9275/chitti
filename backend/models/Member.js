@@ -46,6 +46,8 @@ const memberSchema = new mongoose.Schema(
   }
 );
 
+memberSchema.index({ isActive: 1, assignedDates: 1 });
+
 const Member = mongoose.model('Member', memberSchema);
 
 module.exports = Member;

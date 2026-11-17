@@ -42,7 +42,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/dashboard/summary`, {
         params: { month: selectedMonth, year: selectedYear },
-        timeout: 4000
+        timeout: 10000
       });
       if (res.data.success) {
         setDashboardData(res.data);

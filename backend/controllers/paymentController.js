@@ -43,50 +43,78 @@ const getCollectionPayments = async (req, res) => {
     const dateNum = parseInt(date, 10);
 
     const period = await getOrInitPeriod(monthNum, yearNum, req.user._id);
-    const allActiveMembers = await Member.find({ isActive: true }).sort({ memberId: 1 });
+    const allActiveMembers = await Member.find({ isActive: true }).sort({ memberId: 1 }).lean();
     const membersAssignedToDate = allActiveMembers.filter(m => {
       const dates = m.assignedDates;
       if (!dates || dates.length === 0) return true;
       return dates.includes(dateNum);
     });
 
-    // Ensure a Payment record exists for each member assigned to this date
+    // 1. Fetch previous period ONCE outside loop
+    let prevMonthNum = monthNum - 1;
+    let prevYearNum = yearNum;
+    if (prevMonthNum < 1) {
+      prevMonthNum = 12;
+      prevYearNum = yearNum - 1;
+    }
+    const prevPeriod = await CollectionPeriod.findOne({ month: prevMonthNum, year: prevYearNum }).lean();
+
+    // 2. Fetch all previous payments for this date in ONE query
+    const prevPaymentsMap = new Map();
+    if (prevPeriod) {
+      const prevPayments = await Payment.find({
+        collectionPeriodId: prevPeriod._id,
+        collectionDate: dateNum
+      }).lean();
+      prevPayments.forEach(p => {
+        prevPaymentsMap.set(p.memberId.toString(), p);
+      });
+    }
+
+    // 3. Fetch all existing payments for this period & date in ONE query
+    const existingPayments = await Payment.find({
+      collectionPeriodId: period._id,
+      collectionDate: dateNum
+    });
+    const existingPaymentsMap = new Map();
+    existingPayments.forEach(p => {
+      existingPaymentsMap.set(p.memberId.toString(), p);
+    });
+
+    const newPaymentsToInsert = [];
+    const bulkUpdates = [];
+    const memberPendingMap = {};
+
     for (const member of membersAssignedToDate) {
+      const mIdStr = member._id.toString();
+
+      // Check joining/creation date:
+      // Members never have retroactive debts generated for periods before they joined!
+      const memberCreated = member.createdAt ? new Date(member.createdAt) : null;
+      const isBeforeJoinPeriod = memberCreated && (
+        (yearNum < memberCreated.getFullYear()) ||
+        (yearNum === memberCreated.getFullYear() && monthNum < (memberCreated.getMonth() + 1))
+      );
+
       let carryForwardPaise = 0;
-      let prevMonthNum = monthNum - 1;
-      let prevYearNum = yearNum;
-      if (prevMonthNum < 1) {
-        prevMonthNum = 12;
-        prevYearNum = yearNum - 1;
-      }
-      const prevPeriod = await CollectionPeriod.findOne({ month: prevMonthNum, year: prevYearNum });
-      if (prevPeriod) {
-        const prevPayment = await Payment.findOne({
-          memberId: member._id,
-          collectionPeriodId: prevPeriod._id,
-          collectionDate: dateNum
-        });
-        if (prevPayment) {
-          const isPrevPaid = prevPayment.status === 'PAID' || prevPayment.totalPaidPaise >= prevPayment.actualAmountPaise;
-          if (!isPrevPaid) {
-            const bal = Math.max(0, prevPayment.actualAmountPaise - prevPayment.totalPaidPaise);
-            if (bal > 0) {
-              carryForwardPaise = bal;
-            }
+      if (!isBeforeJoinPeriod && prevPeriod && prevPaymentsMap.has(mIdStr)) {
+        const prevPayment = prevPaymentsMap.get(mIdStr);
+        const isPrevPaid = prevPayment.status === 'PAID' || prevPayment.totalPaidPaise >= prevPayment.actualAmountPaise;
+        if (!isPrevPaid) {
+          const bal = Math.max(0, prevPayment.actualAmountPaise - prevPayment.totalPaidPaise);
+          if (bal > 0) {
+            carryForwardPaise = bal;
           }
         }
       }
 
-      const existing = await Payment.findOne({
-        memberId: member._id,
-        collectionPeriodId: period._id,
-        collectionDate: dateNum
-      });
+      memberPendingMap[mIdStr] = carryForwardPaise / 100;
 
       const correctActualPaise = period.actualAmountPaise + carryForwardPaise;
+      const existing = existingPaymentsMap.get(mIdStr);
 
       if (!existing) {
-        await Payment.create({
+        newPaymentsToInsert.push({
           memberId: member._id,
           collectionPeriodId: period._id,
           collectionDate: dateNum,
@@ -95,14 +123,18 @@ const getCollectionPayments = async (req, res) => {
           status: 'NOT_PAID',
           lastUpdatedByName: 'System'
         });
-      } else {
-        // ALWAYS keep actualAmountPaise in sync with period's current configured amount + carry-forward!
-        if (existing.actualAmountPaise !== correctActualPaise) {
-          existing.actualAmountPaise = correctActualPaise;
-          existing.recalculateStatus();
-          await existing.save();
-        }
+      } else if (existing.actualAmountPaise !== correctActualPaise) {
+        existing.actualAmountPaise = correctActualPaise;
+        existing.recalculateStatus();
+        bulkUpdates.push(existing.save());
       }
+    }
+
+    if (newPaymentsToInsert.length > 0) {
+      await Payment.insertMany(newPaymentsToInsert);
+    }
+    if (bulkUpdates.length > 0) {
+      await Promise.all(bulkUpdates);
     }
 
     let query = { collectionPeriodId: period._id, collectionDate: dateNum };
@@ -188,6 +220,7 @@ const getCollectionPayments = async (req, res) => {
         notPaidCount
       },
       count: payments.length,
+      memberPendingMap,
       payments
     });
   } catch (error) {
@@ -454,7 +487,8 @@ const getDashboardSummary = async (req, res) => {
     const period = await getOrInitPeriod(monthNum, yearNum, req.user._id);
     const activeMembers = await Member.find({ isActive: true });
 
-    const memberDates = await Member.distinct('assignedDates', { isActive: true });
+    // Derive member dates without extra DB round trip
+    const memberDates = Array.from(new Set(activeMembers.flatMap(m => m.assignedDates || []))).filter(Boolean);
     const collectionDates = (period.collectionDates && period.collectionDates.length > 0)
       ? period.collectionDates
       : (memberDates || []);
@@ -488,8 +522,7 @@ const getDashboardSummary = async (req, res) => {
       };
     });
 
-
-    // Determine previous month period and pending map (for carry‑forward)
+    // Determine previous month period and pending map (for carry-forward)
     let prevMonthNum = monthNum - 1;
     let prevYearNum = yearNum;
     if (prevMonthNum < 1) {
@@ -502,13 +535,31 @@ const getDashboardSummary = async (req, res) => {
     const prevDataByMemberAndDate = {};
 
     if (prevPeriod) {
-      const prevPayments = await Payment.find({ collectionPeriodId: prevPeriod._id }).populate('memberId', 'assignedDates isActive');
+      const prevPayments = await Payment.find({ collectionPeriodId: prevPeriod._id }).populate('memberId', 'assignedDates isActive createdAt');
       const prevPaymentIds = prevPayments.map(p => p._id);
-      const prevTransactions = await PaymentTransaction.find({ paymentId: { $in: prevPaymentIds } }).sort({ createdAt: 1 });
+      const prevTransactions = prevPaymentIds.length > 0
+        ? await PaymentTransaction.find({ paymentId: { $in: prevPaymentIds } }).sort({ createdAt: 1 })
+        : [];
 
       prevPayments.forEach(p => {
         if (!p.memberId) return;
+
+        // Check joining date: members who joined after previous period never have debt from it!
+        const memberCreated = p.memberId.createdAt ? new Date(p.memberId.createdAt) : null;
+        const isJoinedAfterPrev = memberCreated && (
+          (prevYearNum < memberCreated.getFullYear()) ||
+          (prevYearNum === memberCreated.getFullYear() && prevMonthNum < (memberCreated.getMonth() + 1))
+        );
+
         const key = `${p.memberId._id}-${p.collectionDate}`;
+        if (isJoinedAfterPrev) {
+          prevDataByMemberAndDate[key] = {
+            prevEntries: [],
+            initialPendingRupees: 0
+          };
+          return;
+        }
+
         const txs = prevTransactions.filter(t => t.paymentId.toString() === p._id.toString());
 
         let paidInPrev = 0;
@@ -569,30 +620,20 @@ const getDashboardSummary = async (req, res) => {
       });
     }
 
-    // Compute previous month summary for reference
+    // Compute previous month summary for reference (reuse prevPayments and activeMembers)
     let previousMonth = null;
     if (prevPeriod) {
-      // Gather payments for previous period
-      const prevPaymentsAll = await Payment.find({ collectionPeriodId: prevPeriod._id }).populate('memberId', 'assignedDates isActive');
-      // Filter active members assigned to any date
-      const prevActivePayments = prevPaymentsAll.filter(p => {
-        if (!p.memberId || !p.memberId.isActive) return false;
-        const dates = p.memberId.assignedDates;
-        if (!dates || dates.length === 0) return true;
-        return true; // all dates considered
-      });
+      const prevPaymentsList = await Payment.find({ collectionPeriodId: prevPeriod._id });
       let prevTotalCollectedPaise = 0;
-      prevActivePayments.forEach(p => { prevTotalCollectedPaise += p.totalPaidPaise; });
+      prevPaymentsList.forEach(p => { prevTotalCollectedPaise += p.totalPaidPaise; });
       const prevTotalCollectedRupees = prevTotalCollectedPaise / 100;
-      // Expected collection based on active members and actualAmountRupees of previous period
       const prevActualAmountRupees = prevPeriod.actualAmountRupees || prevPeriod.actualAmountPaise / 100;
-      const prevActiveMembers = await Member.find({ isActive: true });
-      const prevTotalExpected = prevActiveMembers.length * prevActualAmountRupees;
+      const prevTotalExpected = activeMembers.length * prevActualAmountRupees;
       const prevOutstanding = Math.max(0, prevTotalExpected - prevTotalCollectedRupees);
       previousMonth = {
         month: prevPeriod.month,
         year: prevPeriod.year,
-        totalMembers: prevActiveMembers.length,
+        totalMembers: activeMembers.length,
         totalExpectedCollection: prevTotalExpected,
         totalAmountCollected: prevTotalCollectedRupees,
         totalOutstandingBalance: prevOutstanding
@@ -664,7 +705,7 @@ const getDashboardSummary = async (req, res) => {
           payableRupees,
           previousPendingRupees,
           actualAmountRupees,
-          balanceRupees: p.balancePaise ? p.balancePaise / 100 : 0,
+          balanceRupees: p.balanceRupees !== undefined ? p.balanceRupees : Math.max(0, (p.actualAmountPaise - p.totalPaidPaise) / 100),
           paymentHistory
         });
       }

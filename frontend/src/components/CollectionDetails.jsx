@@ -61,12 +61,15 @@ function CollectionDetails({ month, year, date, onBack }) {
     try {
       const res = await axios.get(`${apiBaseUrl}/payments`, {
         params: { month, year, date, search, status: statusFilter !== 'ALL' ? statusFilter : undefined },
-        timeout: 4000
+        timeout: 10000
       });
       if (res.data.success) {
         const fetched = res.data.payments || [];
         setPayments(fetched);
         if (res.data.period) setPeriod(res.data.period);
+        if (res.data.memberPendingMap) {
+          setMemberPendingMap(res.data.memberPendingMap);
+        }
         saveOfflinePayments(month, year, date, fetched, res.data.period);
       }
     } catch (err) {
@@ -131,7 +134,7 @@ function CollectionDetails({ month, year, date, onBack }) {
     try {
       const res = await axios.get(`${apiBaseUrl}/payments/dashboard/summary`, {
         params: { month, year },
-        timeout: 4000
+        timeout: 10000
       });
       if (res.data.success) {
         saveOfflineSummary(month, year, res.data);
@@ -143,7 +146,7 @@ function CollectionDetails({ month, year, date, onBack }) {
           pMap[m.memberId] = m.previousPendingRupees || 0;
         });
         setMemberHistories(map);
-        setMemberPendingMap(pMap);
+        setMemberPendingMap(prev => ({ ...prev, ...pMap }));
       }
     } catch (e) {
       const cachedSummary = getOfflineSummary(month, year);
@@ -156,16 +159,20 @@ function CollectionDetails({ month, year, date, onBack }) {
           pMap[m.memberId] = m.previousPendingRupees || 0;
         });
         setMemberHistories(map);
-        setMemberPendingMap(pMap);
+        setMemberPendingMap(prev => ({ ...prev, ...pMap }));
       }
     }
   };
 
   useEffect(() => {
     fetchPayments();
-    fetchHistorical();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, year, date, search, statusFilter]);
+
+  useEffect(() => {
+    fetchHistorical();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month, year, date]);
 
   const handlePaymentUpdated = (updatedPayment) => {
     // Immediately update local React state so user sees deposit results instantly on screen!

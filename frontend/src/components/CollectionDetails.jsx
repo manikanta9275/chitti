@@ -33,6 +33,14 @@ function CollectionDetails({ month, year, date, onBack }) {
   const [memberHistories, setMemberHistories] = useState({}); // memberId -> merged paymentHistory
   const [memberPendingMap, setMemberPendingMap] = useState({}); // memberId -> previousPendingRupees
   const [deletingDate, setDeletingDate] = useState(false);
+  const [expandedMembers, setExpandedMembers] = useState({});
+
+  const toggleMemberExpand = (id) => {
+    setExpandedMembers((prev) => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -215,6 +223,45 @@ function CollectionDetails({ month, year, date, onBack }) {
   // Base amount for current period (without carry-forward)
   const baseMonthAmount = period?.actualAmountRupees || 0;
 
+  // Helper to compute amounts for a payment row
+  const getPaymentRowData = (p) => {
+    const memberIdStr = p.memberId?._id || p.memberId;
+    const histEntries = memberHistories[memberIdStr] || [];
+    const prevEntries = histEntries.filter(
+      (h) => Number(h.month) !== Number(month) || Number(h.year) !== Number(year)
+    );
+    const lastPrev = prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null;
+
+    let pendingAmount = 0;
+    if (memberPendingMap[memberIdStr] !== undefined) {
+      pendingAmount = memberPendingMap[memberIdStr];
+    } else if (lastPrev) {
+      pendingAmount =
+        lastPrev.status === 'PAID' || lastPrev.balanceRupees === 0
+          ? 0
+          : Math.max(0, lastPrev.balanceRupees);
+    } else {
+      pendingAmount = Math.max(
+        0,
+        (p.actualAmountRupees || p.actualAmountPaise / 100) - (baseMonthAmount || 0)
+      );
+    }
+
+    const presentMonthAmount = baseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
+    const totalAmount = presentMonthAmount + pendingAmount;
+    const paid = p.totalPaidRupees || p.totalPaidPaise / 100;
+    const balance = Math.max(0, totalAmount - paid);
+
+    return {
+      memberIdStr,
+      presentMonthAmount,
+      pendingAmount,
+      totalAmount,
+      paid,
+      balance
+    };
+  };
+
   return (
     <div className="container py-4 flex-grow-1">
       {/* Header */}
@@ -263,8 +310,160 @@ function CollectionDetails({ month, year, date, onBack }) {
         </div>
       </div>
 
-      {/* Payments Table */}
-      <div className="card shadow-sm border-0">
+      {/* Mobile Phone View (Only displays Member Name & Total Amount; expands on clicking name/row) */}
+      <div className="d-md-none mb-4">
+        {loading && payments.length === 0 ? (
+          <div className="card shadow-sm border-0 p-4 text-center text-muted">
+            <div className="spinner-border text-primary spinner-border-sm me-2"></div> Loading collection records...
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="card shadow-sm border-0 p-4 text-center text-muted">
+            <i className="bi bi-inbox fs-2 d-block mb-2"></i> No collection records found.
+          </div>
+        ) : (
+          <div className="d-flex flex-column gap-2">
+            {payments.map((p, index) => {
+              const {
+                presentMonthAmount,
+                pendingAmount,
+                totalAmount,
+                paid,
+                balance
+              } = getPaymentRowData(p);
+              const isExpanded = !!expandedMembers[p._id];
+
+              return (
+                <div key={`mob_${p._id}`} className="card shadow-sm border-0 overflow-hidden">
+                  {/* Row Header: Displays ONLY Member Name & Total Amount */}
+                  <div
+                    className="card-body p-3 d-flex justify-content-between align-items-center"
+                    style={{ cursor: 'pointer', backgroundColor: isExpanded ? '#f8f9fa' : '#ffffff' }}
+                    onClick={() => toggleMemberExpand(p._id)}
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      <span className="badge bg-light text-secondary border font-monospace" style={{ fontSize: '11px' }}>
+                        #{index + 1}
+                      </span>
+                      {p.memberId?.isStarred && (
+                        <i className="bi bi-star-fill text-warning" title="Starred Member"></i>
+                      )}
+                      <span className="fw-bold text-dark fs-6">{p.memberId?.name}</span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="text-end">
+                        <small className="text-muted d-block" style={{ fontSize: '10px' }}>Total Amount</small>
+                        <span className="fw-bold text-dark fs-6">₹{totalAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                      <i className={`bi bi-chevron-${isExpanded ? 'up text-primary' : 'down text-muted'} fs-6 ms-1`}></i>
+                    </div>
+                  </div>
+
+                  {/* Expanded Section: Displays Remaining Details & 3 Action Buttons */}
+                  {isExpanded && (
+                    <div className="card-footer bg-white border-top p-3">
+                      <div className="row g-2 mb-3">
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>
+                              Present Month ({MONTH_NAMES[month]})
+                            </small>
+                            <strong className="text-dark">₹{presentMonthAmount.toLocaleString('en-IN')}</strong>
+                          </div>
+                        </div>
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>
+                              Pending Amt (Prev Month)
+                            </small>
+                            <strong className={pendingAmount > 0 ? 'text-warning-emphasis' : 'text-muted'}>
+                              {pendingAmount > 0 ? `₹${pendingAmount.toLocaleString('en-IN')}` : '—'}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>Total Amount</small>
+                            <strong className="text-primary">
+                              ₹{totalAmount.toLocaleString('en-IN')}
+                              {pendingAmount > 0 && (
+                                <span className="text-muted fw-normal ms-1" style={{ fontSize: '10px' }}>
+                                  ({presentMonthAmount}+{pendingAmount})
+                                </span>
+                              )}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>Total Paid</small>
+                            <strong className="text-success">₹{paid.toLocaleString('en-IN')}</strong>
+                          </div>
+                        </div>
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>Remaining Balance</small>
+                            <strong className={balance === 0 ? 'text-muted' : 'text-danger'}>
+                              {balance === 0 ? '—' : `₹${balance.toLocaleString('en-IN')}`}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="col-6">
+                          <div className="p-2 bg-light rounded border">
+                            <small className="text-muted d-block" style={{ fontSize: '11px' }}>Status</small>
+                            <div>
+                              {p.status === 'PAID' && <span className="badge bg-success-subtle text-success"><i className="bi bi-check2-circle me-1"></i>Paid</span>}
+                              {p.status === 'PARTIAL' && <span className="badge bg-warning-subtle text-warning-emphasis"><i className="bi bi-hourglass-split me-1"></i>Partial</span>}
+                              {p.status === 'NOT_PAID' && <span className="badge bg-danger-subtle text-danger"><i className="bi bi-x-circle me-1"></i>Not Paid</span>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3 Actions Buttons */}
+                      <div className="d-flex gap-2">
+                        <button
+                          className="btn btn-primary btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                          onClick={() => setSelectedPayment({
+                            ...p,
+                            actualAmountRupees: totalAmount,
+                            balanceRupees: balance,
+                            status: balance === 0 ? 'PAID' : (paid > 0 ? 'PARTIAL' : 'NOT_PAID')
+                          })}
+                          title="Record or Edit Payment"
+                        >
+                          <i className="bi bi-pencil-square"></i> Edit
+                        </button>
+                        <button
+                          className="btn btn-outline-info text-dark btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                          onClick={() => setSelectedStatementMember(p.memberId)}
+                          title="View Complete Payment History & Statement"
+                        >
+                          <i className="bi bi-file-earmark-spreadsheet"></i> Details
+                        </button>
+                        <button
+                          className="btn btn-success btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                          onClick={() => handleWhatsAppReminder({
+                            ...p,
+                            actualAmountRupees: totalAmount,
+                            balanceRupees: balance
+                          })}
+                          title="Send WhatsApp Payment Details & Reminder"
+                        >
+                          <i className="bi bi-whatsapp"></i> Reminder
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Payments Table (Screen md and above: d-none d-md-block) */}
+      <div className="card shadow-sm border-0 d-none d-md-block">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 text-nowrap">
             <thead className="table-light small text-secondary">
@@ -305,27 +504,13 @@ function CollectionDetails({ month, year, date, onBack }) {
                 </tr>
               ) : (
                 payments.map((p, index) => {
-                  const memberIdStr = p.memberId?._id || p.memberId;
-                  const histEntries = memberHistories[memberIdStr] || [];
-                  const prevEntries = histEntries.filter(h => Number(h.month) !== Number(month) || Number(h.year) !== Number(year));
-                  const lastPrev = prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null;
-
-                  // Determine pending carry-forward from previous month
-                  let pendingAmount = 0;
-                  if (memberPendingMap[memberIdStr] !== undefined) {
-                    pendingAmount = memberPendingMap[memberIdStr];
-                  } else if (lastPrev) {
-                    pendingAmount = (lastPrev.status === 'PAID' || lastPrev.balanceRupees === 0) ? 0 : Math.max(0, lastPrev.balanceRupees);
-                  } else {
-                    pendingAmount = Math.max(0, (p.actualAmountRupees || p.actualAmountPaise / 100) - (baseMonthAmount || 0));
-                  }
-
-                  // presentMonthAmount = base period amount for this month
-                  const presentMonthAmount = baseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
-                  // totalAmount = present + pending
-                  const totalAmount = presentMonthAmount + pendingAmount;
-                  const paid = p.totalPaidRupees || p.totalPaidPaise / 100;
-                  const balance = Math.max(0, totalAmount - paid);
+                  const {
+                    presentMonthAmount,
+                    pendingAmount,
+                    totalAmount,
+                    paid,
+                    balance
+                  } = getPaymentRowData(p);
 
                   return (
                     <React.Fragment key={p._id}>

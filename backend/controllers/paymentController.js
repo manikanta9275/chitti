@@ -21,12 +21,9 @@ const getOrInitPeriod = async (month, year, userId) => {
       actualAmountPaise: 500000, // ₹5,000
       createdBy: userId
     });
-  } else if (activeDates.length > 0) {
-    const merged = Array.from(new Set([...(period.collectionDates || []), ...activeDates])).sort((a, b) => a - b);
-    if (merged.length !== (period.collectionDates || []).length) {
-      period.collectionDates = merged;
-      await period.save();
-    }
+  } else if (activeDates.length > 0 && (!period.collectionDates || period.collectionDates.length === 0)) {
+    period.collectionDates = activeDates;
+    await period.save();
   }
   return period;
 };
@@ -59,14 +56,14 @@ const getCollectionPayments = async (req, res) => {
     }
     const prevPeriod = await CollectionPeriod.findOne({ month: prevMonthNum, year: prevYearNum }).lean();
 
-    // 2. Fetch all previous payments for this date in ONE query
+    // 2. Fetch all previous payments for all members (not filtered by dateNum)
     const prevPaymentsMap = new Map();
     if (prevPeriod) {
       const prevPayments = await Payment.find({
-        collectionPeriodId: prevPeriod._id,
-        collectionDate: dateNum
+        collectionPeriodId: prevPeriod._id
       }).lean();
       prevPayments.forEach(p => {
+        // Key by memberId only - each member has one payment per period per their assigned date
         prevPaymentsMap.set(p.memberId.toString(), p);
       });
     }
@@ -143,7 +140,7 @@ const getCollectionPayments = async (req, res) => {
     }
 
     let payments = await Payment.find(query)
-      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred')
+      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred createdAt')
       .populate('lastUpdatedBy', 'username displayName')
       .sort({ createdAt: 1 });
 
@@ -165,6 +162,13 @@ const getCollectionPayments = async (req, res) => {
         return nameMatch || phoneMatch || idMatch;
       });
     }
+
+    // Sort by member's memberId string (M-001, M-002, etc.) to preserve consistent order
+    payments.sort((a, b) => {
+      const aId = a.memberId?.memberId || '';
+      const bId = b.memberId?.memberId || '';
+      return aId.localeCompare(bId, undefined, { numeric: true });
+    });
 
     const totalMembers = membersAssignedToDate.length;
     const actualAmountRupees = period.actualAmountRupees || period.actualAmountPaise / 100;
@@ -838,10 +842,79 @@ const getMemberStatement = async (req, res) => {
   }
 };
 
+// Undo the last payment transaction for a payment record
+const undoLastTransaction = async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .populate('memberId', 'name memberId');
+
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment record not found.' });
+    }
+
+    // Find the most recent transaction
+    const lastTx = await PaymentTransaction.findOne({ paymentId: payment._id })
+      .sort({ createdAt: -1 });
+
+    if (!lastTx) {
+      return res.status(404).json({ success: false, message: 'No transactions found to undo.' });
+    }
+
+    // Validate: would not make totalPaidPaise negative
+    if (payment.totalPaidPaise - lastTx.amountPaise < 0) {
+      return res.status(400).json({ success: false, message: 'Cannot undo: would make total paid negative.' });
+    }
+
+    const previousValues = {
+      totalPaidRupees: payment.totalPaidRupees,
+      balanceRupees: payment.balanceRupees,
+      status: payment.status
+    };
+
+    // Subtract the transaction amount from the total paid
+    payment.totalPaidPaise -= lastTx.amountPaise;
+    payment.recalculateStatus();
+    payment.lastUpdatedBy = req.user._id;
+    payment.lastUpdatedByName = req.user.displayName;
+    await payment.save();
+
+    // Delete the last transaction
+    await PaymentTransaction.findByIdAndDelete(lastTx._id);
+
+    // Log it
+    await ActivityLog.create({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'PAYMENT_RECORDED',
+      entityType: 'Payment',
+      entityId: payment._id,
+      previousValues,
+      newValues: {
+        member: payment.memberId?.name,
+        undoneAmountRupees: lastTx.amountPaise / 100,
+        totalPaidRupees: payment.totalPaidRupees,
+        status: payment.status,
+        note: 'Last transaction undone',
+        enteredByName: req.user.displayName
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Undid last transaction of ₹${(lastTx.amountPaise / 100).toLocaleString('en-IN')} for ${payment.memberId?.name}.`,
+      payment
+    });
+  } catch (error) {
+    console.error('undoLastTransaction error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server error undoing transaction.' });
+  }
+};
+
 module.exports = {
   getCollectionPayments,
   addPaymentTransaction,
   getPaymentDetails,
   getDashboardSummary,
-  getMemberStatement
+  getMemberStatement,
+  undoLastTransaction
 };

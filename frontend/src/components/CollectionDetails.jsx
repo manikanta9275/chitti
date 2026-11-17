@@ -193,6 +193,21 @@ function CollectionDetails({ month, year, date, onBack }) {
     setTimeout(() => setFeedback(null), 5000);
   };
 
+  const handleAfterPayment = (updatedPayment) => {
+    handlePaymentUpdated(updatedPayment);
+    // Auto-open WhatsApp with updated paid + balance info
+    const paid = updatedPayment.totalPaidRupees ?? (updatedPayment.totalPaidPaise / 100);
+    const actual = updatedPayment.actualAmountRupees ?? (updatedPayment.actualAmountPaise / 100);
+    const balance = Math.max(0, actual - paid);
+    setSelectedPayment(null);
+    setSelectedWhatsAppPayment({
+      ...updatedPayment,
+      actualAmountRupees: actual,
+      totalPaidRupees: paid,
+      balanceRupees: balance
+    });
+  };
+
   const handleWhatsAppReminder = (payment) => {
     setSelectedWhatsAppPayment(payment);
   };
@@ -418,6 +433,7 @@ function CollectionDetails({ month, year, date, onBack }) {
           memberHistory={memberHistories[selectedPayment.memberId?._id] || []}
           onClose={() => setSelectedPayment(null)}
           onPaymentUpdated={handlePaymentUpdated}
+          onAfterPayment={handleAfterPayment}
         />
       )}
       {selectedStatementMember && (

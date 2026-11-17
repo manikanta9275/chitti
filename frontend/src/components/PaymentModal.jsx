@@ -8,7 +8,7 @@ import {
   isOnline
 } from '../utils/offlineSync';
 
-function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }) {
+function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, onAfterPayment }) {
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
@@ -51,6 +51,19 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }
     fetchPaymentDetails();
   }, [payment._id]);
 
+  const handleUndoLast = async () => {
+    if (!window.confirm('Undo the last payment transaction? This will subtract that amount from the total paid.')) return;
+    try {
+      const res = await axios.delete(`${apiBaseUrl}/payments/${payment._id}/transactions/last`, { timeout: 6000 });
+      if (res.data.success) {
+        if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
+        fetchPaymentDetails(); // refresh transactions list
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to undo last transaction.');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const numAmount = parseFloat(amount);
@@ -85,6 +98,9 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }
         recordPaymentLocally(payment, numAmount, txType, notes, user, false);
         if (onPaymentUpdated) {
           onPaymentUpdated(res.data.payment);
+        }
+        if (onAfterPayment) {
+          onAfterPayment(res.data.payment);
         }
         onClose();
       }
@@ -318,10 +334,22 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated }
                 )}
 
                 {/* ── Installment Transactions (this month) ── */}
-                <h6 className="fw-bold text-secondary mb-2">
-                  <i className="bi bi-receipt me-1"></i>
-                  Installment Transactions — This Month ({transactions.length})
-                </h6>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h6 className="fw-bold text-secondary mb-0">
+                    <i className="bi bi-receipt me-1"></i>
+                    Installment Transactions — This Month ({transactions.length})
+                  </h6>
+                  {transactions.length > 0 && (
+                    <button
+                      className="btn btn-warning btn-sm"
+                      onClick={handleUndoLast}
+                      title="Undo the last transaction"
+                    >
+                      <i className="bi bi-arrow-counterclockwise me-1"></i>
+                      Undo Last
+                    </button>
+                  )}
+                </div>
                 {fetchingHistory ? (
                   <div className="text-center py-4">
                     <div className="spinner-border text-primary spinner-border-sm me-2"></div>

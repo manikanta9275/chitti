@@ -121,7 +121,7 @@ function CollectionDetails({ month, year, date, onBack }) {
       const offlineMembersObj = getOfflineMembers();
       const offlineMembersList = Array.isArray(offlineMembersObj?.members) ? offlineMembersObj.members : [];
       const activeMembers = offlineMembersList.filter((m) => m.isActive !== false);
-      const actualAmount = cachedConfig?.actualAmountRupees || period?.actualAmountRupees || 4500;
+      const actualAmount = cachedConfig?.actualAmountRupees || period?.actualAmountRupees || 0;
 
       if (!cached || !Array.isArray(cached.payments) || cached.payments.length === 0) {
         const dNum = Number(date);

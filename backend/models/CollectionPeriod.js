@@ -27,7 +27,7 @@ const collectionPeriodSchema = new mongoose.Schema(
     // Store in integer paise (1 Rupee = 100 paise) to prevent floating-point rounding issues
     basicAmountPaise: {
       type: Number,
-      default: 500000 // Default basic amount: ₹5,000 (500,000 paise)
+      default: 0 // No default amount — must be configured explicitly
     },
     bonusPaise: {
       type: Number,
@@ -37,7 +37,7 @@ const collectionPeriodSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Common actual collection amount is required'],
       min: [0, 'Amount cannot be negative'],
-      default: 500000 // Default actual amount: ₹5,000 (500,000 paise)
+      default: 0 // No default amount — must be configured explicitly
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -57,7 +57,7 @@ collectionPeriodSchema.virtual('actualAmountRupees').get(function () {
 });
 
 collectionPeriodSchema.virtual('basicAmountRupees').get(function () {
-  return (this.basicAmountPaise !== undefined ? this.basicAmountPaise : 500000) / 100;
+  return (this.basicAmountPaise !== undefined ? this.basicAmountPaise : 0) / 100;
 });
 
 collectionPeriodSchema.virtual('bonusRupees').get(function () {

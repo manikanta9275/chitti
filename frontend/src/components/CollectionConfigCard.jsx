@@ -12,7 +12,7 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
   // Edit form state
   const [editDates, setEditDates] = useState([]);
   const [customConfigDay, setCustomConfigDay] = useState('');
-  const [editBasic, setEditBasic] = useState('5000');
+  const [editBasic, setEditBasic] = useState('');
   const [editBonus, setEditBonus] = useState('0');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +30,7 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
       if (res.data.success && res.data.period) {
         setPeriod(res.data.period);
         setEditDates(res.data.period.collectionDates || []);
-        const basic = res.data.period.basicAmountRupees !== undefined ? res.data.period.basicAmountRupees : 5000;
+        const basic = res.data.period.basicAmountRupees !== undefined ? res.data.period.basicAmountRupees : 0;
         const bonus = res.data.period.bonusRupees !== undefined ? res.data.period.bonusRupees : 0;
         setEditBasic(String(basic));
         setEditBonus(String(bonus));
@@ -42,7 +42,7 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
       if (cached) {
         setPeriod(cached);
         setEditDates(cached.collectionDates || []);
-        const basic = cached.basicAmountRupees !== undefined ? cached.basicAmountRupees : 5000;
+        const basic = cached.basicAmountRupees !== undefined ? cached.basicAmountRupees : 0;
         const bonus = cached.bonusRupees !== undefined ? cached.bonusRupees : 0;
         setEditBasic(String(basic));
         setEditBonus(String(bonus));
@@ -160,7 +160,7 @@ function CollectionConfigCard({ selectedMonth, selectedYear, onConfigUpdated }) 
     }
   };
 
-  const basicRupees = period?.basicAmountRupees !== undefined ? period.basicAmountRupees : 5000;
+  const basicRupees = period?.basicAmountRupees !== undefined ? period.basicAmountRupees : 0;
   const bonusRupees = period?.bonusRupees || 0;
   const actualRupees = period?.actualAmountRupees !== undefined ? period.actualAmountRupees : Math.max(0, basicRupees - bonusRupees);
   const currentDates = period?.collectionDates || [];

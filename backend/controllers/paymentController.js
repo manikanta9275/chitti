@@ -14,9 +14,9 @@ const getOrInitPeriod = async (month, year, userId) => {
       month,
       year,
       collectionDates: [],
-      basicAmountPaise: 500000, // ₹5,000
+      basicAmountPaise: 0, // No default — must be configured explicitly
       bonusPaise: 0,
-      actualAmountPaise: 500000, // ₹5,000
+      actualAmountPaise: 0, // No default — must be configured explicitly
       createdBy: userId
     });
   }
@@ -86,15 +86,15 @@ const getCollectionPayments = async (req, res) => {
           id: period._id,
           month: period.month,
           year: period.year,
-          basicAmountRupees: period.basicAmountRupees !== undefined ? period.basicAmountRupees : 5000,
+          basicAmountRupees: period.basicAmountRupees !== undefined ? period.basicAmountRupees : 0,
           bonusRupees: period.bonusRupees !== undefined ? period.bonusRupees : 0,
-          actualAmountRupees: period.actualAmountRupees || 5000,
+          actualAmountRupees: period.actualAmountRupees || 0,
           collectionDates: period.collectionDates || []
         },
         collectionDate: dateNum,
         summary: {
           totalMembers: 0,
-          actualAmountRupees: period.actualAmountRupees || 5000,
+          actualAmountRupees: period.actualAmountRupees || 0,
           totalExpectedRupees: 0,
           totalCollectedRupees: 0,
           totalBalanceRupees: 0,
@@ -244,7 +244,7 @@ const getCollectionPayments = async (req, res) => {
         id: period._id,
         month: period.month,
         year: period.year,
-        basicAmountRupees: period.basicAmountRupees !== undefined ? period.basicAmountRupees : (period.basicAmountPaise ? period.basicAmountPaise / 100 : 5000),
+        basicAmountRupees: period.basicAmountRupees !== undefined ? period.basicAmountRupees : (period.basicAmountPaise ? period.basicAmountPaise / 100 : 0),
         bonusRupees: period.bonusRupees !== undefined ? period.bonusRupees : (period.bonusPaise ? period.bonusPaise / 100 : 0),
         actualAmountRupees,
         collectionDates: period.collectionDates
@@ -969,7 +969,7 @@ const updateManualPendingAmount = async (req, res) => {
     }
 
     const period = payment.collectionPeriodId;
-    const basePaise = period ? period.actualAmountPaise : 500000;
+    const basePaise = period ? period.actualAmountPaise : 0;
     const pendingPaise = Math.round(numPending * 100);
 
     const oldActual = payment.actualAmountPaise;

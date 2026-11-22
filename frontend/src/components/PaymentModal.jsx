@@ -25,18 +25,13 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
   const [savingPending, setSavingPending] = useState(false);
   const [pendingFeedback, setPendingFeedback] = useState('');
 
-  // Month Collection Amount editing state (like Collection Dates & Amount config)
+  // Month Collection Amount & Bonus editing state (unified month config)
   const [isEditingCollectionAmount, setIsEditingCollectionAmount] = useState(false);
   const [collectionAmountInput, setCollectionAmountInput] = useState('');
+  const [bonusInput, setBonusInput] = useState('');
   const [applyAmountToAll, setApplyAmountToAll] = useState(true);
   const [savingCollectionAmount, setSavingCollectionAmount] = useState(false);
   const [collectionAmountFeedback, setCollectionAmountFeedback] = useState('');
-
-  // Month Bonus editing state
-  const [isEditingBonus, setIsEditingBonus] = useState(false);
-  const [bonusInput, setBonusInput] = useState('');
-  const [savingBonus, setSavingBonus] = useState(false);
-  const [bonusFeedback, setBonusFeedback] = useState('');
 
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -119,51 +114,31 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
     }
   };
 
-  const handleSaveBonus = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    const num = parseFloat(bonusInput);
-    if (isNaN(num) || num < 0) {
-      setError('Please enter a valid bonus (0 or greater).');
-      return;
-    }
-    setSavingBonus(true);
-    setError('');
-    try {
-      const res = await axios.put(`${apiBaseUrl}/payments/${activePayment._id}/collection-amount`, {
-        bonus: num,
-        applyToAll: true
-      }, { timeout: 6000 });
-      if (res.data.success) {
-        setActivePayment(res.data.payment);
-        setIsEditingBonus(false);
-        setBonusFeedback(`Monthly bonus set to ₹${num.toLocaleString('en-IN')}`);
-        if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
-        setTimeout(() => setBonusFeedback(''), 4000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update bonus.');
-    } finally {
-      setSavingBonus(false);
-    }
-  };
-
   const handleSaveCollectionAmount = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     const num = parseFloat(collectionAmountInput);
     if (isNaN(num) || num < 0) {
-      setError('Please enter a valid amount (0 or greater).');
+      setError('Please enter a valid month amount (0 or greater).');
       return;
     }
+    const numBonus = parseFloat(bonusInput);
+    if (isNaN(numBonus) || numBonus < 0) {
+      setError('Please enter a valid bonus amount (0 or greater).');
+      return;
+    }
+
     setSavingCollectionAmount(true);
     setError('');
     try {
       const res = await axios.put(`${apiBaseUrl}/payments/${activePayment._id}/collection-amount`, {
         amount: num,
+        bonus: numBonus,
         applyToAll: applyAmountToAll
       }, { timeout: 6000 });
       if (res.data.success) {
         setActivePayment(res.data.payment);
         setIsEditingCollectionAmount(false);
-        setCollectionAmountFeedback(`Month collection amount set to ₹${num.toLocaleString('en-IN')}${applyAmountToAll ? ' (all members)' : ''}`);
+        setCollectionAmountFeedback(`Month collection amount set to ₹${num.toLocaleString('en-IN')} (Bonus: ₹${numBonus.toLocaleString('en-IN')})${applyAmountToAll ? ' for all members' : ''}`);
         if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
         setTimeout(() => setCollectionAmountFeedback(''), 4000);
       }
@@ -373,39 +348,24 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
             {/* Action Bar: 2 Main Operations — "Add/Change Month Amount" + "Khata Book Paid" */}
             <div className="mt-2 pt-2 border-top d-flex flex-wrap gap-2 justify-content-between align-items-center">
               <div className="d-flex flex-wrap gap-2">
-                {/* Button 1: Add/Change Month Collection Amount (Collection Dates & Amount config) */}
+                {/* Button 1: Add/Change Month Collection Amount & Bonus */}
                 <button
                   type="button"
                   className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1 shadow-xs fw-semibold"
                   onClick={() => {
                     const currentBase = activePayment.collectionPeriodId?.actualAmountRupees || 0;
+                    const currentBonus = activePayment.collectionPeriodId?.bonusRupees || 0;
                     setCollectionAmountInput(currentBase ? String(currentBase) : '');
+                    setBonusInput(currentBonus !== undefined ? String(currentBonus) : '');
                     setIsEditingCollectionAmount(!isEditingCollectionAmount);
-                    setIsEditingBonus(false);
                     setIsEditingPending(false);
                   }}
                 >
                   <i className="bi bi-gear-fill"></i>
-                  Add/Set Month Amount
+                  Add/Set Month Amount &amp; Bonus
                 </button>
 
-                {/* Button 2: Add Monthly Bonus */}
-                <button
-                  type="button"
-                  className="btn btn-outline-warning text-dark btn-sm d-inline-flex align-items-center gap-1 shadow-xs fw-semibold"
-                  onClick={() => {
-                    const currentBonus = activePayment.collectionPeriodId?.bonusRupees || 0;
-                    setBonusInput(currentBonus ? String(currentBonus) : '');
-                    setIsEditingBonus(!isEditingBonus);
-                    setIsEditingCollectionAmount(false);
-                    setIsEditingPending(false);
-                  }}
-                >
-                  <i className="bi bi-gift-fill text-warning"></i>
-                  Add Bonus
-                </button>
-
-                {/* Button 3: Customer Paid Full Amount (Like Khata Book App) */}
+                {/* Button 2: Customer Paid Full Amount (Like Khata Book App) */}
                 {remainingRupees > 0 && (
                   <button
                     type="button"
@@ -437,12 +397,12 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
               ) : null}
             </div>
 
-            {/* Inline Form: Add/Set Month Collection Amount (like Collection Dates & Amount) */}
+            {/* Inline Form: Add/Set Month Collection Amount & Bonus (unified month config) */}
             {isEditingCollectionAmount && (
               <div className="p-3 bg-light rounded-3 border mt-2">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <span className="fw-bold small text-primary d-flex align-items-center gap-1">
-                    <i className="bi bi-cash-coin"></i> Month Base Amount Configuration
+                    <i className="bi bi-cash-coin"></i> Month Base Amount &amp; Bonus Configuration
                   </span>
                   <button
                     type="button"
@@ -451,8 +411,11 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                     onClick={() => setIsEditingCollectionAmount(false)}
                   ></button>
                 </div>
-                <div className="row g-2 align-items-center">
+                <div className="row g-3 align-items-center">
                   <div className="col-12 col-sm-6">
+                    <label className="form-label small fw-semibold text-secondary mb-1">
+                      Month Base Amount (₹) <span className="text-danger">*</span>
+                    </label>
                     <div className="input-group input-group-sm">
                       <span className="input-group-text bg-white fw-bold">₹</span>
                       <input
@@ -468,6 +431,23 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                     </div>
                   </div>
                   <div className="col-12 col-sm-6">
+                    <label className="form-label small fw-semibold text-secondary mb-1">
+                      Bonus Amount (₹) <span className="text-danger">*</span>
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-white fw-bold text-warning-emphasis">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="form-control fw-bold text-warning-emphasis"
+                        placeholder="e.g. 400"
+                        value={bonusInput}
+                        onChange={(e) => setBonusInput(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="col-12">
                     <div className="form-check form-switch small">
                       <input
                         className="form-check-input"
@@ -492,7 +472,7 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                     <button
                       type="button"
                       className="btn btn-primary btn-sm fw-semibold"
-                      disabled={savingCollectionAmount || !collectionAmountInput}
+                      disabled={savingCollectionAmount || !collectionAmountInput || !bonusInput}
                       onClick={handleSaveCollectionAmount}
                     >
                       {savingCollectionAmount ? 'Saving...' : 'Save Amount'}
@@ -504,67 +484,6 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
             {collectionAmountFeedback && (
               <div className="alert alert-success py-1 px-2 mt-2 mb-0 small text-center">
                 <i className="bi bi-check-circle me-1"></i>{collectionAmountFeedback}
-              </div>
-            )}
-
-            {/* Inline Form: Add/Set Monthly Bonus */}
-            {isEditingBonus && (
-              <div className="p-3 bg-warning-subtle rounded-3 border border-warning-subtle mt-2">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <span className="fw-bold small text-dark d-flex align-items-center gap-1">
-                    <i className="bi bi-gift-fill text-warning"></i> Monthly Bonus Configuration
-                  </span>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    style={{ fontSize: '10px' }}
-                    onClick={() => setIsEditingBonus(false)}
-                  ></button>
-                </div>
-                <div className="row g-2 align-items-center">
-                  <div className="col-12 col-sm-6">
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-white fw-bold text-warning-emphasis">₹</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="form-control fw-bold text-warning-emphasis"
-                        placeholder="e.g. 500"
-                        value={bonusInput}
-                        onChange={(e) => setBonusInput(e.target.value)}
-                        autoFocus
-                      />
-                    </div>
-                  </div>
-                  <div className="col-12 col-sm-6">
-                    <small className="text-muted">
-                      Bonus discount applies across this month's collection.
-                    </small>
-                  </div>
-                  <div className="col-12 d-flex justify-content-end gap-2 mt-2">
-                    <button
-                      type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => setIsEditingBonus(false)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-warning btn-sm fw-bold text-dark"
-                      disabled={savingBonus || !bonusInput}
-                      onClick={handleSaveBonus}
-                    >
-                      {savingBonus ? 'Saving...' : 'Save Bonus'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {bonusFeedback && (
-              <div className="alert alert-success py-1 px-2 mt-2 mb-0 small text-center">
-                <i className="bi bi-check-circle me-1"></i>{bonusFeedback}
               </div>
             )}
 

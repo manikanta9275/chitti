@@ -140,7 +140,7 @@ function MainApp() {
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
                 >
-                  {[2025, 2026, 2027, 2028].map((yr) => (
+                  {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
                     <option key={yr} value={yr}>
                       {yr}
                     </option>

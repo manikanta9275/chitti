@@ -73,10 +73,18 @@ const getCollectionPayments = async (req, res) => {
       existingPaymentsMap.set(p.memberId.toString(), p);
     });
 
-    const isDateConfigured = period.collectionDates && period.collectionDates.includes(dateNum);
+    // Check if date is configured or has members assigned to it
+    const hasMembersOnDate = membersAssignedToDate.length > 0;
+    const isDateConfigured = (period.collectionDates && period.collectionDates.includes(dateNum)) || hasMembersOnDate;
 
-    // If this date is NOT configured in this period and has no existing payments:
-    // DO NOT auto-generate fake payments! Return empty result with notConfigured flag.
+    // If date has members assigned to it, ensure it is added to this period's collectionDates so it stays configured
+    if (hasMembersOnDate && (!period.collectionDates || !period.collectionDates.includes(dateNum))) {
+      period.collectionDates = Array.from(new Set([...(period.collectionDates || []), dateNum])).sort((a, b) => a - b);
+      await period.save();
+    }
+
+    // If this date is NOT configured in this period and has no existing payments and no assigned members:
+    // Return empty result with notConfigured flag.
     if (!isDateConfigured && existingPayments.length === 0) {
       return res.status(200).json({
         success: true,
@@ -530,11 +538,15 @@ const getDashboardSummary = async (req, res) => {
     const period = await getOrInitPeriod(monthNum, yearNum, req.user._id);
     const activeMembers = await Member.find({ isActive: true });
 
-    // Derive member dates without extra DB round trip
-    const memberDates = Array.from(new Set(activeMembers.flatMap(m => m.assignedDates || []))).filter(Boolean);
-    const collectionDates = (period.collectionDates && period.collectionDates.length > 0)
-      ? period.collectionDates
-      : [];
+    // Derive active member dates: active chitti dates that members are assigned to
+    const memberDates = Array.from(new Set(activeMembers.flatMap(m => m.assignedDates || []))).filter(Boolean).sort((a, b) => a - b);
+    
+    // Automatically make memberDates available across future/all collection periods (20-21+ months)
+    let collectionDates = Array.from(new Set([...(period.collectionDates || []), ...memberDates])).sort((a, b) => a - b);
+    if ((!period.collectionDates || period.collectionDates.length === 0) && memberDates.length > 0) {
+      period.collectionDates = collectionDates;
+      await period.save();
+    }
     const actualAmountRupees = period.actualAmountRupees || period.actualAmountPaise / 100;
 
     const allPeriodPayments = await Payment.find({ collectionPeriodId: period._id }).populate('memberId', 'assignedDates isActive');
@@ -1015,18 +1027,13 @@ const updateManualPendingAmount = async (req, res) => {
   }
 };
 
-// @desc    Update/set the base actual amount for this month's collection (applies to period and updates payments)
+// @desc    Update/set the base actual amount and/or bonus for this month's collection (applies to period and updates payments)
 // @route   PUT /api/payments/:id/collection-amount
 // @access  Protected
 const updatePaymentCollectionAmount = async (req, res) => {
   try {
     const { id } = req.params;
-    const { amount, applyToAll } = req.body;
-
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 0) {
-      return res.status(400).json({ success: false, message: 'Please enter a valid amount (0 or greater).' });
-    }
+    const { amount, bonus, applyToAll } = req.body;
 
     const payment = await Payment.findById(id).populate('collectionPeriodId memberId');
     if (!payment) {
@@ -1034,33 +1041,57 @@ const updatePaymentCollectionAmount = async (req, res) => {
     }
 
     const period = payment.collectionPeriodId;
-    const amountPaise = Math.round(numAmount * 100);
+    let netAmountRupees = null;
 
-    // If applyToAll is true (default), update the collection period's actualAmountPaise
-    // so every member in this month gets this base amount (multiplied by their chittiCount)
-    if (applyToAll !== false && period) {
-      period.actualAmountPaise = amountPaise;
-      period.basicAmountPaise = amountPaise;
+    if (amount !== undefined) {
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount < 0) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid amount (0 or greater).' });
+      }
+      netAmountRupees = numAmount;
+    }
+
+    let bonusRupees = undefined;
+    if (bonus !== undefined) {
+      const numBonus = parseFloat(bonus);
+      if (isNaN(numBonus) || numBonus < 0) {
+        return res.status(400).json({ success: false, message: 'Please enter a valid bonus (0 or greater).' });
+      }
+      bonusRupees = numBonus;
+    }
+
+    if (period) {
+      if (bonusRupees !== undefined) {
+        period.bonusPaise = Math.round(bonusRupees * 100);
+      }
+      if (netAmountRupees !== null) {
+        period.actualAmountPaise = Math.round(netAmountRupees * 100);
+        period.basicAmountPaise = Math.round((netAmountRupees + ((period.bonusPaise || 0) / 100)) * 100);
+      }
       await period.save();
+    }
 
-      // Update all payment records for this period according to each member's chittiCount and pending
+    const baseAmountPaise = period ? period.actualAmountPaise : (netAmountRupees !== null ? Math.round(netAmountRupees * 100) : 0);
+
+    // If applyToAll is true (default), update all payment records for this period
+    if (applyToAll !== false && period) {
       const allPayments = await Payment.find({ collectionPeriodId: period._id }).populate('memberId');
       for (const p of allPayments) {
         const chittiCount = p.memberId?.chittiCount || p.chittiCount || 1;
         const pendingPaise = p.manualPendingPaise !== null && p.manualPendingPaise !== undefined
           ? p.manualPendingPaise
-          : Math.max(0, p.actualAmountPaise - (p.chittiCount || 1) * (payment.actualAmountPaise || 0));
+          : 0;
         
-        p.actualAmountPaise = (amountPaise * chittiCount) + (pendingPaise || 0);
+        p.actualAmountPaise = (baseAmountPaise * chittiCount) + pendingPaise;
         p.recalculateStatus();
         p.lastUpdatedBy = req.user._id;
         p.lastUpdatedByName = req.user.displayName || req.user.username;
         await p.save();
       }
     } else {
-      // Apply only to this member's payment
+      const chittiCount = payment.memberId?.chittiCount || payment.chittiCount || 1;
       const pendingPaise = payment.manualPendingPaise || 0;
-      payment.actualAmountPaise = amountPaise + pendingPaise;
+      payment.actualAmountPaise = (baseAmountPaise * chittiCount) + pendingPaise;
       payment.recalculateStatus();
       payment.lastUpdatedBy = req.user._id;
       payment.lastUpdatedByName = req.user.displayName || req.user.username;
@@ -1080,15 +1111,24 @@ const updatePaymentCollectionAmount = async (req, res) => {
       newValues: {
         actualAmountPaise: updatedPayment.actualAmountPaise,
         status: updatedPayment.status,
-        monthlyBaseRupees: numAmount
+        monthlyBaseRupees: baseAmountPaise / 100,
+        bonusRupees: period ? period.bonusPaise / 100 : 0
       }
     });
 
+    const displayAmount = (baseAmountPaise / 100).toLocaleString('en-IN');
+    const bonusMsg = bonusRupees !== undefined ? ` (Bonus: ₹${bonusRupees.toLocaleString('en-IN')})` : '';
+
     return res.status(200).json({
       success: true,
-      message: `Month collection amount set to ₹${numAmount.toLocaleString('en-IN')}${applyToAll !== false ? ' for all members' : ''}.`,
+      message: `Month collection amount set to ₹${displayAmount}${bonusMsg}${applyToAll !== false ? ' for all members' : ''}.`,
       payment: updatedPayment
     });
+  } catch (error) {
+    console.error('updatePaymentCollectionAmount error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server error setting collection amount.' });
+  }
+};
   } catch (error) {
     console.error('updatePaymentCollectionAmount error:', error);
     return res.status(500).json({ success: false, message: error.message || 'Server error setting collection amount.' });

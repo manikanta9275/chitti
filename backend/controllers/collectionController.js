@@ -51,9 +51,9 @@ const getCurrentCollectionPeriod = async (req, res) => {
         month: currentMonth,
         year: currentYear,
         collectionDates: [],
-        basicAmountPaise: 500000, // ₹5,000
+        basicAmountPaise: 0,
         bonusPaise: 0,
-        actualAmountPaise: 500000, // ₹5,000
+        actualAmountPaise: 0,
         createdBy: req.user._id
       });
 
@@ -256,9 +256,9 @@ const addCollectionDate = async (req, res) => {
         month: currentMonth,
         year: currentYear,
         collectionDates: [dateNum],
-        basicAmountPaise: 500000,
+        basicAmountPaise: 0,
         bonusPaise: 0,
-        actualAmountPaise: 500000,
+        actualAmountPaise: 0,
         createdBy: req.user._id
       });
     } else {

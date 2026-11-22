@@ -23,6 +23,7 @@ function WhatsAppModal({
 }) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [language, setLanguage] = useState('en'); // 'en' | 'te'
+  const [messagePattern, setMessagePattern] = useState('summary'); // 'summary' | 'detailed'
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,24 +54,22 @@ function WhatsAppModal({
     return digits;
   };
 
-  const generateTemplate = (lang) => {
-    if (lang === 'te') {
-      const monthTe = MONTH_NAMES_TE[month] || '';
-      return `నమస్కారం ${memberName},
+  const generateTemplate = (lang, pattern) => {
+    const curPattern = pattern || messagePattern;
+    const curLang = lang || language;
 
-తేదీ: ${date} ${monthTe} ${year}
-చిట్టీ చెల్లింపు వివరాలు:
-
+    if (curPattern === 'summary') {
+      if (curLang === 'te') {
+        return `Hi
 • మొత్తం (Total Amount): ₹${totalAmount.toLocaleString('en-IN')}
 • చెల్లించినది (Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
 • బకాయి (Pending Amount): ₹${balanceAmount.toLocaleString('en-IN')}
 
 - K.V.V. Satyanarayana Chitti Collection`;
-    }
+      }
 
-    const monthEn = MONTH_NAMES_EN[month] || '';
-    return `Hello ${memberName},
-
+      const monthEn = MONTH_NAMES_EN[month] || '';
+      return `Hi
 Date: ${date} ${monthEn} ${year}
 Chitti Payment Details:
 
@@ -79,18 +78,62 @@ Chitti Payment Details:
 • Pending Amount: ₹${balanceAmount.toLocaleString('en-IN')}
 
 - K.V.V. Satyanarayana Chitti Collection`;
+    }
+
+    // Detailed pattern (previous pattern)
+    if (curLang === 'te') {
+      const monthTe = MONTH_NAMES_TE[month] || '';
+      return `నమస్కారం,
+
+${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల్లింపు వివరాలు:
+
+• సాధారణ మొత్తం (Amount): ₹${basicAmt.toLocaleString('en-IN')}
+• బోనస్ (Bonus): ₹${bonusAmt.toLocaleString('en-IN')}
+• ప్రస్తుత నెల మొత్తం (This Month): ₹${netMonthAmount.toLocaleString('en-IN')}
+• పాత బకాయి (Pending Amount): ₹${pendingAmount.toLocaleString('en-IN')}
+• మొత్తం చెల్లించవలసినది (Total Amount): ₹${totalAmount.toLocaleString('en-IN')}
+• చెల్లించిన మొత్తం (Total Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
+• మిగిలిన బకాయి (Remaining Balance): ₹${balanceAmount.toLocaleString('en-IN')}
+
+దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
+
+- K.V.V. Satyanarayana Chitti Collection`;
+    }
+
+    const monthEn = MONTH_NAMES_EN[month] || '';
+    return `Hello,
+
+Your payment details for ${date} ${monthEn} ${year}:
+
+• Amount: ₹${basicAmt.toLocaleString('en-IN')}
+• Bonus: ₹${bonusAmt.toLocaleString('en-IN')}
+• This Month Amount: ₹${netMonthAmount.toLocaleString('en-IN')}
+• Pending Amount: ₹${pendingAmount.toLocaleString('en-IN')}
+• Total Amount Due: ₹${totalAmount.toLocaleString('en-IN')}
+• Total Paid Amount: ₹${paidAmount.toLocaleString('en-IN')}
+• Remaining Balance: ₹${balanceAmount.toLocaleString('en-IN')}
+
+Please clear the remaining balance at your earliest convenience.
+
+- K.V.V. Satyanarayana Chitti Collection`;
   };
 
   // Generate initial default message
   useEffect(() => {
     setPhoneNumber(initialPhone);
-    setMessage(generateTemplate(language));
+    setMessage(generateTemplate(language, messagePattern));
   }, [payment, baseMonthAmount, basicAmount, bonus, month, year, date]);
 
   // When language switches, re-generate message
   const handleLanguageChange = (lang) => {
     setLanguage(lang);
-    setMessage(generateTemplate(lang));
+    setMessage(generateTemplate(lang, messagePattern));
+  };
+
+  // When pattern switches, re-generate message
+  const handlePatternChange = (pat) => {
+    setMessagePattern(pat);
+    setMessage(generateTemplate(language, pat));
   };
 
   const formattedPhone = getFormattedPhone(phoneNumber);
@@ -227,28 +270,57 @@ Chitti Payment Details:
               </small> */}
             </div>
 
-            {/* Language Selector Tabs */}
-            <div className="mb-3">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <label className="form-label small fw-bold text-dark mb-0">
-                  <i className="bi bi-translate text-primary me-1"></i>
-                  Select Message Language / భాషను ఎంచుకోండి:
-                </label>
-                <div className="btn-group btn-group-sm" role="group">
-                  <button
-                    type="button"
-                    className={`btn px-3 fw-semibold ${language === 'en' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => handleLanguageChange('en')}
-                  >
-                    English
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn px-3 fw-semibold ${language === 'te' ? 'btn-primary' : 'btn-outline-primary'}`}
-                    onClick={() => handleLanguageChange('te')}
-                  >
-                    తెలుగు (Telugu)
-                  </button>
+            {/* Message Pattern & Language Selector Controls */}
+            <div className="mb-3 p-3 bg-light rounded-3 border">
+              <div className="row g-2 align-items-center">
+                {/* Pattern / Type Selector */}
+                <div className="col-12 col-md-7">
+                  <label className="form-label small fw-bold text-dark mb-1 d-block">
+                    <i className="bi bi-chat-text text-primary me-1"></i>
+                    Message Type / మెసేజ్ రకం:
+                  </label>
+                  <div className="btn-group btn-group-sm w-100" role="group">
+                    <button
+                      type="button"
+                      className={`btn px-2 fw-semibold ${messagePattern === 'summary' ? 'btn-primary shadow-xs' : 'btn-outline-primary bg-white'}`}
+                      onClick={() => handlePatternChange('summary')}
+                    >
+                      <i className="bi bi-lightning-charge me-1"></i>
+                      Quick (Total/Paid/Pending)
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn px-2 fw-semibold ${messagePattern === 'detailed' ? 'btn-primary shadow-xs' : 'btn-outline-primary bg-white'}`}
+                      onClick={() => handlePatternChange('detailed')}
+                    >
+                      <i className="bi bi-list-check me-1"></i>
+                      Full Breakdown (Previous)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Language Selector */}
+                <div className="col-12 col-md-5">
+                  <label className="form-label small fw-bold text-dark mb-1 d-block">
+                    <i className="bi bi-translate text-primary me-1"></i>
+                    Language / భాష:
+                  </label>
+                  <div className="btn-group btn-group-sm w-100" role="group">
+                    <button
+                      type="button"
+                      className={`btn px-3 fw-semibold ${language === 'en' ? 'btn-primary shadow-xs' : 'btn-outline-primary bg-white'}`}
+                      onClick={() => handleLanguageChange('en')}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn px-3 fw-semibold ${language === 'te' ? 'btn-primary shadow-xs' : 'btn-outline-primary bg-white'}`}
+                      onClick={() => handleLanguageChange('te')}
+                    >
+                      తెలుగు
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -257,7 +329,7 @@ Chitti Payment Details:
             <div className="mb-3">
               <div className="d-flex justify-content-between align-items-center mb-1">
                 <label className="form-label small fw-semibold text-secondary mb-0">
-                  Message Preview ({language === 'te' ? 'Telugu' : 'English'} — Editable)
+                  Message Preview ({messagePattern === 'summary' ? 'Quick' : 'Full Breakdown'} • {language === 'te' ? 'Telugu' : 'English'} — Editable)
                 </label>
                 <button
                   type="button"

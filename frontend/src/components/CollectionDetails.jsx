@@ -469,38 +469,53 @@ function CollectionDetails({ month, year, date, onBack }) {
                         </div>
                       </div>
 
-                      {/* 3 Actions Buttons */}
-                      <div className="d-flex gap-2">
-                        <button
-                          className="btn btn-primary btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
-                          onClick={() => setSelectedPayment({
-                            ...p,
-                            actualAmountRupees: totalAmount,
-                            balanceRupees: balance,
-                            status: balance === 0 ? 'PAID' : (paid > 0 ? 'PARTIAL' : 'NOT_PAID')
-                          })}
-                          title="Record or Edit Payment"
-                        >
-                          <i className="bi bi-pencil-square"></i> Edit
-                        </button>
-                        <button
-                          className="btn btn-outline-info text-dark btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
-                          onClick={() => setSelectedStatementMember(p.memberId)}
-                          title="View Complete Payment History & Statement"
-                        >
-                          <i className="bi bi-file-earmark-spreadsheet"></i> Details
-                        </button>
-                        <button
-                          className="btn btn-success btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
-                          onClick={() => handleWhatsAppReminder({
-                            ...p,
-                            actualAmountRupees: totalAmount,
-                            balanceRupees: balance
-                          })}
-                          title="Send WhatsApp Payment Details & Reminder"
-                        >
-                          <i className="bi bi-whatsapp"></i> Reminder
-                        </button>
+                      {/* Action Buttons */}
+                      <div className="row g-2">
+                        <div className="col-6">
+                          <button
+                            className="btn btn-primary btn-sm w-100 d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                            onClick={() => setSelectedPayment({
+                              ...p,
+                              actualAmountRupees: totalAmount,
+                              balanceRupees: balance,
+                              status: balance === 0 ? 'PAID' : (paid > 0 ? 'PARTIAL' : 'NOT_PAID')
+                            })}
+                            title="Record or Edit Payment"
+                          >
+                            <i className="bi bi-pencil-square"></i> Edit
+                          </button>
+                        </div>
+                        <div className="col-6">
+                          <button
+                            className="btn btn-outline-info text-dark btn-sm w-100 d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                            onClick={() => setSelectedStatementMember(p.memberId)}
+                            title="View Complete Payment History & Statement"
+                          >
+                            <i className="bi bi-file-earmark-spreadsheet"></i> Details
+                          </button>
+                        </div>
+                        <div className="col-6">
+                          <button
+                            className="btn btn-success btn-sm w-100 d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold"
+                            onClick={() => handleWhatsAppReminder({
+                              ...p,
+                              actualAmountRupees: totalAmount,
+                              balanceRupees: balance
+                            })}
+                            title="Send WhatsApp Payment Details & Reminder"
+                          >
+                            <i className="bi bi-whatsapp"></i> Reminder
+                          </button>
+                        </div>
+                        <div className="col-6">
+                          <a
+                            href={p.memberId?.phoneNumber ? `tel:${p.memberId.phoneNumber}` : '#'}
+                            className={`btn btn-outline-secondary btn-sm w-100 d-inline-flex align-items-center justify-content-center gap-1 py-2 fw-semibold ${!p.memberId?.phoneNumber ? 'disabled' : ''}`}
+                            title={p.memberId?.phoneNumber ? `Direct Call to ${p.memberId.name} (${p.memberId.phoneNumber})` : 'No phone number'}
+                          >
+                            <i className="bi bi-telephone-fill text-success"></i> Call
+                          </a>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -572,6 +587,17 @@ function CollectionDetails({ month, year, date, onBack }) {
                             )}
                             <span className="fw-bold text-dark">{p.memberId?.name}</span>
                           </div>
+                          {p.memberId?.phoneNumber && (
+                            <a
+                              href={`tel:${p.memberId.phoneNumber}`}
+                              className="text-muted small text-decoration-none d-inline-flex align-items-center gap-1 mt-1"
+                              style={{ fontSize: '11px' }}
+                              title={`Direct Call ${p.memberId.name}`}
+                            >
+                              <i className="bi bi-telephone-fill text-success" style={{ fontSize: '10px' }}></i>
+                              {p.memberId.phoneNumber}
+                            </a>
+                          )}
                         </td>
 
                         {/* Present Month Amount */}
@@ -648,6 +674,15 @@ function CollectionDetails({ month, year, date, onBack }) {
                             >
                               <i className="bi bi-whatsapp"></i> Reminder
                             </button>
+                            {p.memberId?.phoneNumber && (
+                              <a
+                                href={`tel:${p.memberId.phoneNumber}`}
+                                className="btn btn-outline-secondary d-inline-flex align-items-center gap-1"
+                                title={`Direct Call to ${p.memberId.name} (${p.memberId.phoneNumber})`}
+                              >
+                                <i className="bi bi-telephone-fill text-success"></i> Call
+                              </a>
+                            )}
                           </div>
                         </td>
                       </tr>

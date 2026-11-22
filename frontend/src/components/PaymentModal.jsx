@@ -180,6 +180,16 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                 <i className="bi bi-cash-stack"></i>
                 Payment Management — {memberName}
                 <span className="badge bg-light text-primary font-monospace ms-1">{memberId}</span>
+                {activePayment.memberId?.phoneNumber && (
+                  <a
+                    href={`tel:${activePayment.memberId.phoneNumber}`}
+                    className="btn btn-sm btn-light text-success fw-bold py-0 px-2 rounded-pill shadow-xs ms-1"
+                    style={{ fontSize: '12px' }}
+                    title={`Call ${memberName} (${activePayment.memberId.phoneNumber})`}
+                  >
+                    <i className="bi bi-telephone-fill me-1"></i>Call
+                  </a>
+                )}
               </h5>
               <small className="text-white-50">
                 Date: {payment.collectionDate}th &bull; Entered by: {user?.displayName}

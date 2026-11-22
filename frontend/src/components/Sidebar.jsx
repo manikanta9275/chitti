@@ -183,7 +183,7 @@ function Sidebar({
         <div className="p-3 bg-primary text-white d-flex align-items-center justify-content-between shadow-xs">
           <div className="d-flex align-items-center gap-2">
             <img
-              src="/me_daddy.jpeg"
+              src="/me_daddy.jpg"
               alt="Logo"
               className="rounded-circle shadow-xs border border-white"
               style={{ width: '36px', height: '36px', objectFit: 'cover' }}

@@ -48,7 +48,7 @@ function Login() {
           {/* App Header */}
           <div className="text-center mb-4">
             <img
-              src="/me_daddy.jpeg"
+              src="/me_daddy.jpg"
               alt="Logo"
               className="rounded-circle shadow border border-2 border-primary mb-3"
               style={{ width: '80px', height: '80px', objectFit: 'cover' }}

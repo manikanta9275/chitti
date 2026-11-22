@@ -670,10 +670,21 @@ function MemberManagement() {
                       </div>
                     </td>
                     <td>
-                      <span className="text-muted small">
-                        {/* <i className="bi bi-telephone me-1"></i> */}
-                        {member.phoneNumber}
-                      </span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">
+                          {member.phoneNumber}
+                        </span>
+                        {member.phoneNumber && (
+                          <a
+                            href={`tel:${member.phoneNumber}`}
+                            className="btn btn-outline-success btn-sm py-0 px-2 rounded-pill shadow-xs"
+                            style={{ fontSize: '11px' }}
+                            title={`Direct Call ${member.name} (${member.phoneNumber})`}
+                          >
+                            <i className="bi bi-telephone-fill me-1"></i>Call
+                          </a>
+                        )}
+                      </div>
                     </td>
                     {/* Respective Collection Date Badges */}
                     <td className="text-center">

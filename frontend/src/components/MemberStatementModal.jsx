@@ -236,9 +236,9 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
       <body>
         <div class="header-box">
           <div class="logo-title-group">
-            <img src="/me_daddy.jpeg" class="logo-img" alt="Logo" onerror="this.style.display='none'">
+            <img src="/me_daddy.jpg" class="logo-img" alt="Logo" onerror="this.style.display='none'">
             <div>
-              <h1 class="org-title">K.V.V.Satyanarayana CHITTI COLLECTION</h1>
+              <h1 class="org-title">K.V.V.Satyanarayana Chitti Collection</h1>
               <p class="doc-subtitle">Member Running Ledger &amp; Payment Statement</p>
             </div>
           </div>

@@ -3,8 +3,8 @@
   "name": "Chitti Collection Management",
   "icons": [
     {
-      "src": "me_daddy.png",
-      "type": "image/svg+xml",
+      "src": "/me_daddy.jpg",
+      "type": "image/jpeg",
       "sizes": "192x192 512x512"
     }
   ],

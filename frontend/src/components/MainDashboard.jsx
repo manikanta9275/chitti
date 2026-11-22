@@ -208,7 +208,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
         <div>
           <h3 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
             <img
-              src="/me_daddy.jpeg"
+              src="/me_daddy.jpg"
               alt="Logo"
               className="rounded-circle shadow-xs me-1"
               style={{ width: '32px', height: '32px', objectFit: 'cover' }}

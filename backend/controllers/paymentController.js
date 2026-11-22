@@ -1129,11 +1129,6 @@ const updatePaymentCollectionAmount = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message || 'Server error setting collection amount.' });
   }
 };
-  } catch (error) {
-    console.error('updatePaymentCollectionAmount error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Server error setting collection amount.' });
-  }
-};
 
 module.exports = {
   getCollectionPayments,

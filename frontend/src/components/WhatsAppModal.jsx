@@ -92,8 +92,8 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
 • ప్రస్తుత నెల మొత్తం (This Month): ₹${netMonthAmount.toLocaleString('en-IN')}
 • పాత బకాయి (Pending Amount): ₹${pendingAmount.toLocaleString('en-IN')}
 • మొత్తం చెల్లించవలసినది (Total Amount): ₹${totalAmount.toLocaleString('en-IN')}
-• చెల్లించిన మొత్తం (Total Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
-• మిగిలిన బకాయి (Remaining Balance): ₹${balanceAmount.toLocaleString('en-IN')}
+// • చెల్లించిన మొత్తం (Total Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
+// • మిగిలిన బకాయి (Remaining Balance): ₹${balanceAmount.toLocaleString('en-IN')}
 
 దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
 
@@ -110,8 +110,8 @@ Your payment details for ${date} ${monthEn} ${year}:
 • This Month Amount: ₹${netMonthAmount.toLocaleString('en-IN')}
 • Pending Amount: ₹${pendingAmount.toLocaleString('en-IN')}
 • Total Amount Due: ₹${totalAmount.toLocaleString('en-IN')}
-• Total Paid Amount: ₹${paidAmount.toLocaleString('en-IN')}
-• Remaining Balance: ₹${balanceAmount.toLocaleString('en-IN')}
+// • Total Paid Amount: ₹${paidAmount.toLocaleString('en-IN')}
+// • Remaining Balance: ₹${balanceAmount.toLocaleString('en-IN')}
 
 Please clear the remaining balance at your earliest convenience.
 

@@ -125,6 +125,7 @@ const getCollectionPayments = async (req, res) => {
 
       let carryForwardPaise = 0;
       const existing = existingPaymentsMap.get(mIdStr);
+      const chittiCount = member.chittiCount || 1;
 
       if (existing && existing.manualPendingPaise !== null && existing.manualPendingPaise !== undefined) {
         carryForwardPaise = existing.manualPendingPaise;
@@ -144,7 +145,7 @@ const getCollectionPayments = async (req, res) => {
 
       memberPendingMap[mIdStr] = carryForwardPaise / 100;
 
-      const correctActualPaise = period.actualAmountPaise + carryForwardPaise;
+      const correctActualPaise = (period.actualAmountPaise * chittiCount) + carryForwardPaise;
 
       if (!existing && isDateConfigured) {
         newPaymentsToInsert.push({
@@ -152,6 +153,7 @@ const getCollectionPayments = async (req, res) => {
           collectionPeriodId: period._id,
           collectionDate: dateNum,
           actualAmountPaise: correctActualPaise,
+          chittiCount: chittiCount,
           manualPendingPaise: (existing && existing.manualPendingPaise !== null) ? existing.manualPendingPaise : (carryForwardPaise > 0 && !prevPeriod ? carryForwardPaise : null),
           totalPaidPaise: 0,
           status: 'NOT_PAID',
@@ -177,7 +179,7 @@ const getCollectionPayments = async (req, res) => {
     }
 
     let payments = await Payment.find(query)
-      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred createdAt')
+      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred createdAt chittiCount')
       .populate('lastUpdatedBy', 'username displayName')
       .sort({ createdAt: 1 });
 
@@ -969,7 +971,8 @@ const updateManualPendingAmount = async (req, res) => {
     }
 
     const period = payment.collectionPeriodId;
-    const basePaise = period ? period.actualAmountPaise : 0;
+    const chittiMultiplier = payment.memberId?.chittiCount || payment.chittiCount || 1;
+    const basePaise = (period ? period.actualAmountPaise : 0) * chittiMultiplier;
     const pendingPaise = Math.round(numPending * 100);
 
     const oldActual = payment.actualAmountPaise;

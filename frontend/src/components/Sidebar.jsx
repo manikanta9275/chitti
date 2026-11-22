@@ -48,12 +48,6 @@ function Sidebar({
       desc: 'Manage Members & Assignments'
     },
     {
-      id: 'config',
-      label: 'Collection Dates & Amount',
-      icon: 'bi-calendar-event',
-      desc: 'Dates, Monthly Amounts & Bonuses'
-    },
-    {
       id: 'logs',
       label: 'Activity Logs',
       icon: 'bi-clock-history',

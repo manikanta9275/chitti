@@ -180,6 +180,11 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                 <i className="bi bi-cash-stack"></i>
                 Payment Management — {memberName}
                 <span className="badge bg-light text-primary font-monospace ms-1">{memberId}</span>
+                {((activePayment.memberId?.chittiCount || activePayment.chittiCount) > 1) && (
+                  <span className="badge bg-warning text-dark font-monospace ms-1">
+                    {activePayment.memberId?.chittiCount || activePayment.chittiCount} Chittis
+                  </span>
+                )}
                 {activePayment.memberId?.phoneNumber && (
                   <a
                     href={`tel:${activePayment.memberId.phoneNumber}`}

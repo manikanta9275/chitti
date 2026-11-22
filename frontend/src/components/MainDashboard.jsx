@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { saveOfflineSummary, getOfflineSummary, getOfflineMembers, getOfflineConfig } from '../utils/offlineSync';
+import { ToastContainer } from './Toast';
+import { useToast } from '../hooks/useToast';
 
 const MONTHS = [
   { value: 1, label: 'January' },
@@ -22,7 +24,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
   const { isAdmin } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   // Delete single date modal state
   const [dateToDelete, setDateToDelete] = useState(null);
@@ -76,7 +78,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
           .filter((d) => !isNaN(d) && d >= 1 && d <= 31)
           .sort((a, b) => a - b);
 
-        const actualAmount = cachedConfig?.actualAmountRupees || 4500;
+        const actualAmount = cachedConfig?.actualAmountRupees || 0;
         const totalExpected = activeMembers.length * actualAmount;
 
         const breakdown = allDates.map((d) => {
@@ -155,18 +157,12 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
           deleteFromSchedule
         }
       });
-      setFeedback({
-        type: 'success',
-        message: res.data?.message || `Payments for date ${dateToDelete} deleted.`
-      });
+      showToast(res.data?.message || `Payments for date ${dateToDelete} deleted.`, 'success');
       setDateToDelete(null);
       setDeleteFromSchedule(false);
       fetchDashboardSummary();
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Failed to delete date payments.'
-      });
+      showToast(err.response?.data?.message || 'Failed to delete date payments.', 'danger');
     } finally {
       setDeletingDateAction(false);
     }
@@ -185,10 +181,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
       const res = await axios.delete(`${apiBaseUrl}/collections/reset-database`, {
         data: { pin: adminPinInput }
       });
-      setFeedback({
-        type: 'success',
-        message: res.data?.message || 'Database wiped clean successfully!'
-      });
+      showToast(res.data?.message || 'Database wiped clean successfully!', 'success');
       setShowResetModal(false);
       setAdminPinInput('');
       fetchDashboardSummary();
@@ -219,16 +212,15 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
              Period: <strong>{monthLabel} {selectedYear}</strong> &bull; 
           </p>
         </div>
+        <button
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+          onClick={fetchDashboardSummary}
+          title="Refresh dashboard data"
+        >
+          <i className="bi bi-arrow-clockwise"></i>
+          <span>Refresh</span>
+        </button>
       </div>
-
-      {/* Feedback Alert */}
-      {feedback && (
-        <div className={`alert alert-${feedback.type} alert-dismissible fade show`} role="alert">
-          <i className={`bi bi-${feedback.type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2`}></i>
-          {feedback.message}
-          <button type="button" className="btn-close" onClick={() => setFeedback(null)}></button>
-        </div>
-      )}
 
       {/* Metric Cards */}
       
@@ -483,6 +475,7 @@ function MainDashboard({ selectedMonth, selectedYear, onSelectDate }) {
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

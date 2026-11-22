@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import CollectionConfigCard from './CollectionConfigCard';
 import MemberManagement from './MemberManagement';
 
 const MONTHS = [
@@ -20,9 +19,8 @@ const MONTHS = [
 
 function AdminDashboard() {
   const { user, isAdmin } = useAuth();
-  const [selectedMonth, setSelectedMonth] = useState(10); // Default: October 2026 per specs
-  const [selectedYear, setSelectedYear] = useState(2026);
-  const [activeTab, setActiveTab] = useState('members'); // 'members' | 'config'
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   return (
     <div className="container py-4 flex-grow-1">
@@ -47,7 +45,7 @@ function AdminDashboard() {
                   </h4>
                   <p className="text-muted small mb-0">
                     {isAdmin
-                      ? 'Admin Dashboard: Manage 20 members, collection dates, and common amount.'
+                      ? 'Admin Dashboard: Manage members and collection dates.'
                       : 'Member & Schedule View: Shared database records across all accounts.'}
                   </p>
                 </div>
@@ -93,62 +91,11 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* Navigation Pills */}
-      <ul className="nav nav-pills mb-4 gap-2">
-        <li className="nav-item">
-          <button
-            className={`nav-link px-4 py-2 fw-semibold d-flex align-items-center gap-2 ${
-              activeTab === 'members' ? 'active shadow-sm' : 'bg-white text-secondary border'
-            }`}
-            onClick={() => setActiveTab('members')}
-          >
-            <i className="bi bi-people-fill"></i>
-            <span>Members Directory (20)</span>
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link px-4 py-2 fw-semibold d-flex align-items-center gap-2 ${
-              activeTab === 'config' ? 'active shadow-sm' : 'bg-white text-secondary border'
-            }`}
-            onClick={() => setActiveTab('config')}
-          >
-            <i className="bi bi-sliders"></i>
-            <span>Collection Dates & Amount</span>
-          </button>
-        </li>
-      </ul>
-
-      {/* Main Tab Content */}
-      {activeTab === 'members' && (
-        <>
-          {/* Quick Schedule Preview Bar */}
-          <div className="alert alert-info py-2 px-3 small d-flex align-items-center justify-content-between mb-3 rounded-3">
-            <span>
-              <i className="bi bi-info-circle-fill me-2"></i>
-              Active Period: <strong>October {selectedYear}</strong> &bull; Common Amount: <strong>₹1,000 / member</strong>
-            </span>
-            <button
-              className="btn btn-link btn-sm text-decoration-none p-0 fw-semibold"
-              onClick={() => setActiveTab('config')}
-            >
-              View Dates Schedule &rarr;
-            </button>
-          </div>
-          <MemberManagement />
-        </>
-      )}
-
-      {activeTab === 'config' && (
-        <CollectionConfigCard
-          selectedMonth={selectedMonth}
-          selectedYear={selectedYear}
-        />
-      )}
+      {/* Members Directory */}
+      <MemberManagement />
 
     </div>
   );
 }
 
 export default AdminDashboard;
-

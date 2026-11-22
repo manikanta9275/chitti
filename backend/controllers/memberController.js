@@ -74,7 +74,7 @@ const getMemberById = async (req, res) => {
 // @access  Admin only
 const createMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount, chittiCount } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Member name is required.' });
     if (!phoneNumber || !phoneNumber.trim()) return res.status(400).json({ success: false, message: 'Phone number is required.' });
     let dates = [5];
@@ -93,6 +93,7 @@ const createMember = async (req, res) => {
       assignedDates: dates,
       isStarred: Boolean(isStarred),
       initialPendingPaise: initPendingPaise,
+      chittiCount: Math.max(1, Math.min(10, parseInt(chittiCount) || 1)),
       isActive: true
     });
     await ActivityLog.create({
@@ -124,7 +125,7 @@ const createMember = async (req, res) => {
 // @access  Admin only
 const updateMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount, chittiCount } = req.body;
     const member = await Member.findById(req.params.id);
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found.' });
@@ -153,6 +154,9 @@ const updateMember = async (req, res) => {
     }
     if (initialPendingAmount !== undefined) {
       member.initialPendingPaise = Math.max(0, Math.round((Number(initialPendingAmount) || 0) * 100));
+    }
+    if (chittiCount !== undefined) {
+      member.chittiCount = Math.max(1, Math.min(10, parseInt(chittiCount) || 1));
     }
 
     await member.save();

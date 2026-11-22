@@ -45,6 +45,13 @@ const memberSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0
+    },
+    // Number of chittis this member holds (1 = single, 2 = double, 3 = triple, etc.)
+    chittiCount: {
+      type: Number,
+      default: 1,
+      min: [1, 'Chitti count must be at least 1'],
+      max: [10, 'Chitti count cannot exceed 10']
     }
   },
   {

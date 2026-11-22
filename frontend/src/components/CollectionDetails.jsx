@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import PaymentModal from './PaymentModal';
 import WhatsAppModal from './WhatsAppModal';
 import MemberStatementModal from './MemberStatementModal';
+import { ToastContainer } from './Toast';
+import { useToast } from '../hooks/useToast';
 import {
   saveOfflinePayments,
   getOfflinePayments,
@@ -29,12 +31,12 @@ function CollectionDetails({ month, year, date, onBack }) {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedStatementMember, setSelectedStatementMember] = useState(null);
   const [selectedWhatsAppPayment, setSelectedWhatsAppPayment] = useState(null);
-  const [feedback, setFeedback] = useState(null);
   const [memberHistories, setMemberHistories] = useState({}); // memberId -> merged paymentHistory
   const [memberPendingMap, setMemberPendingMap] = useState({}); // memberId -> previousPendingRupees
   const [deletingDate, setDeletingDate] = useState(false);
   const [expandedMembers, setExpandedMembers] = useState({});
   const [notConfiguredMsg, setNotConfiguredMsg] = useState('');
+  const { toasts, showToast, removeToast } = useToast();
 
   const toggleMemberExpand = (id) => {
     setExpandedMembers((prev) => ({
@@ -54,11 +56,11 @@ function CollectionDetails({ month, year, date, onBack }) {
       const res = await axios.delete(`${apiBaseUrl}/collections/date`, {
         data: { month, year, date }
       });
-      setFeedback({ type: 'success', message: res.data?.message || 'Date payment records deleted successfully.' });
+      showToast(res.data?.message || 'Date payment records deleted successfully.', 'success');
       fetchPayments();
       fetchHistorical();
     } catch (err) {
-      setFeedback({ type: 'danger', message: err.response?.data?.message || 'Failed to delete date records.' });
+      showToast(err.response?.data?.message || 'Failed to delete date records.', 'danger');
     } finally {
       setDeletingDate(false);
     }
@@ -223,15 +225,14 @@ function CollectionDetails({ month, year, date, onBack }) {
       );
     }
     const isOff = !isOnline();
-    setFeedback({
-      type: 'success',
-      message: isOff
+    showToast(
+      isOff
         ? 'Payment deposited and saved locally! Click "Update to DB" when network is available.'
-        : 'Payment recorded successfully! Database updated.'
-    });
+        : 'Payment recorded successfully! Database updated.',
+      'success'
+    );
     fetchPayments();
     fetchHistorical();
-    setTimeout(() => setFeedback(null), 5000);
   };
 
   const handleAfterPayment = (updatedPayment) => {
@@ -265,6 +266,9 @@ function CollectionDetails({ month, year, date, onBack }) {
     );
     const lastPrev = prevEntries.length > 0 ? prevEntries[prevEntries.length - 1] : null;
 
+    const chittiMultiplier = p.memberId?.chittiCount || p.chittiCount || 1;
+    const memberBaseMonthAmount = (baseMonthAmount || 0) * chittiMultiplier;
+
     let pendingAmount = 0;
     if (memberPendingMap[memberIdStr] !== undefined) {
       pendingAmount = memberPendingMap[memberIdStr];
@@ -276,11 +280,11 @@ function CollectionDetails({ month, year, date, onBack }) {
     } else {
       pendingAmount = Math.max(
         0,
-        (p.actualAmountRupees || p.actualAmountPaise / 100) - (baseMonthAmount || 0)
+        (p.actualAmountRupees || p.actualAmountPaise / 100) - (memberBaseMonthAmount || 0)
       );
     }
 
-    const presentMonthAmount = baseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
+    const presentMonthAmount = memberBaseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
     const totalAmount = presentMonthAmount + pendingAmount;
     const paid = p.totalPaidRupees || p.totalPaidPaise / 100;
     const balance = Math.max(0, totalAmount - paid);
@@ -303,22 +307,16 @@ function CollectionDetails({ month, year, date, onBack }) {
           <button className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1 mb-2 shadow-xs" onClick={onBack}>
             <i className="bi bi-arrow-left"></i> Back to Collection Dates
           </button>
-          {/* <h3 className="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-            <i className="bi bi-calendar2-check text-primary"></i>
-            Collection Details — {date} {MONTH_NAMES[month]} {year}
-          </h3> */}
-          {/* <small className="text-muted">Shared database records • All 4 accounts can view &amp; record payments</small> */}
         </div>
+        <button
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+          onClick={() => { fetchPayments(); fetchHistorical(); }}
+          title="Refresh data"
+        >
+          <i className="bi bi-arrow-clockwise"></i>
+          <span>Refresh</span>
+        </button>
       </div>
-
-      {/* Feedback */}
-      {feedback && (
-        <div className={`alert alert-${feedback.type} alert-dismissible fade show`} role="alert">
-          <i className={`bi bi-${feedback.type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2`}></i>
-          {feedback.message}
-          <button type="button" className="btn-close" onClick={() => setFeedback(null)}></button>
-        </div>
-      )}
 
       {/* If this collection date was not started / active in this month */}
       {notConfiguredMsg ? (
@@ -397,6 +395,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                         <i className="bi bi-star-fill text-warning" title="Starred Member"></i>
                       )}
                       <span className="fw-bold text-dark fs-6">{p.memberId?.name}</span>
+                      {((p.memberId?.chittiCount || p.chittiCount) > 1) && (
+                        <span className="badge bg-primary text-white" style={{ fontSize: '10px' }}>
+                          {p.memberId?.chittiCount || p.chittiCount} Chittis
+                        </span>
+                      )}
                     </div>
 
                     <div className="d-flex align-items-center gap-2">
@@ -586,6 +589,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                               <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
                             )}
                             <span className="fw-bold text-dark">{p.memberId?.name}</span>
+                            {((p.memberId?.chittiCount || p.chittiCount) > 1) && (
+                              <span className="badge bg-primary text-white ms-1" style={{ fontSize: '10px' }}>
+                                {p.memberId?.chittiCount || p.chittiCount} Chittis
+                              </span>
+                            )}
                           </div>
                           {p.memberId?.phoneNumber && (
                             <a
@@ -717,15 +725,16 @@ function CollectionDetails({ month, year, date, onBack }) {
       {selectedWhatsAppPayment && (
         <WhatsAppModal
           payment={selectedWhatsAppPayment}
-          baseMonthAmount={baseMonthAmount}
-          basicAmount={period?.basicAmountRupees !== undefined ? period.basicAmountRupees : 5000}
-          bonus={period?.bonusRupees || 0}
+          baseMonthAmount={baseMonthAmount * (selectedWhatsAppPayment?.memberId?.chittiCount || selectedWhatsAppPayment?.chittiCount || 1)}
+          basicAmount={(period?.basicAmountRupees !== undefined ? period.basicAmountRupees : 0) * (selectedWhatsAppPayment?.memberId?.chittiCount || selectedWhatsAppPayment?.chittiCount || 1)}
+          bonus={(period?.bonusRupees || 0) * (selectedWhatsAppPayment?.memberId?.chittiCount || selectedWhatsAppPayment?.chittiCount || 1)}
           month={month}
           year={year}
           date={date}
           onClose={() => setSelectedWhatsAppPayment(null)}
         />
       )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

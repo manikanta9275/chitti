@@ -43,6 +43,11 @@ const paymentSchema = new mongoose.Schema(
       type: Number,
       default: null
     },
+    // Number of chittis this member held at the time of payment creation
+    chittiCount: {
+      type: Number,
+      default: 1
+    },
     lastUpdatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

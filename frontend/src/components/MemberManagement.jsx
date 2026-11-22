@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { saveOfflineMembers, getOfflineMembers, addToSyncQueue } from '../utils/offlineSync';
+import { ToastContainer } from './Toast';
+import { useToast } from '../hooks/useToast';
 
 function MemberManagement() {
   const { user, isAdmin } = useAuth();
@@ -12,7 +14,7 @@ function MemberManagement() {
   const [search, setSearch] = useState('');
   const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
   const [showInactive, setShowInactive] = useState(false);
-  const [feedback, setFeedback] = useState(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   // Dynamic collection dates created by user
   const [createdDates, setCreatedDates] = useState(() => {
@@ -102,10 +104,7 @@ function MemberManagement() {
         if (cached.dateCounts) setDateCounts(cached.dateCounts);
         if (cached.totalActive !== undefined) setTotalActive(cached.totalActive);
       } else {
-        setFeedback({
-          type: 'danger',
-          message: err.response?.data?.message || 'Failed to load members from server.'
-        });
+        showToast(err.response?.data?.message || 'Failed to load members from server.', 'danger');
       }
     } finally {
       setLoading(false);
@@ -126,7 +125,7 @@ function MemberManagement() {
   const handleCreateNewDate = async (dayNum) => {
     const day = parseInt(dayNum, 10);
     if (isNaN(day) || day < 1 || day > 31) {
-      setFeedback({ type: 'danger', message: 'Please enter a valid day of the month between 1 and 31.' });
+      showToast('Please enter a valid day of the month between 1 and 31.', 'danger');
       return;
     }
     const updated = Array.from(new Set([...createdDates, day])).sort((a, b) => a - b);
@@ -139,10 +138,7 @@ function MemberManagement() {
       addToSyncQueue({ type: 'ADD_DATE', data: { date: day } });
     }
     setSelectedDateFilter(String(day));
-    setFeedback({
-      type: 'success',
-      message: `Collection date ${day}th created! You can now click "Add Member" to add members for the ${day}th.`
-    });
+    showToast(`Collection date ${day}th created! You can now click "Add Member" to add members for the ${day}th.`, 'success');
     setShowCreateDateModal(false);
     setNewDateInput('');
   };
@@ -159,7 +155,8 @@ function MemberManagement() {
       phoneNumber: '+91',
       assignedDates: [defaultDate],
       isStarred: false,
-      initialPendingAmount: ''
+      initialPendingAmount: '',
+      chittiCount: 1
     });
     setFormError('');
     setCustomDayInput('');
@@ -174,7 +171,8 @@ function MemberManagement() {
       phoneNumber: member.phoneNumber,
       assignedDates: member.assignedDates && member.assignedDates.length > 0 ? member.assignedDates : [1],
       isStarred: member.isStarred !== undefined ? Boolean(member.isStarred) : true,
-      initialPendingAmount: member.initialPendingPaise ? member.initialPendingPaise / 100 : (member.initialPendingRupees || '')
+      initialPendingAmount: member.initialPendingPaise ? member.initialPendingPaise / 100 : (member.initialPendingRupees || ''),
+      chittiCount: member.chittiCount || 1
     });
     setFormError('');
     setCustomDayInput('');
@@ -243,6 +241,7 @@ function MemberManagement() {
           assignedDates: formData.assignedDates,
           isStarred: Boolean(formData.isStarred),
           initialPendingPaise: Math.max(0, Math.round((Number(formData.initialPendingAmount) || 0) * 100)),
+          chittiCount: formData.chittiCount || 1,
           isActive: true
         };
         membersList.push(newMem);
@@ -254,10 +253,7 @@ function MemberManagement() {
           memberName: formData.name
         });
         setMembers(membersList);
-        setFeedback({
-          type: 'success',
-          message: `Member ${formData.name} added in offline mode! Will update to database when online.`
-        });
+        showToast(`Member ${formData.name} added in offline mode! Will sync when online.`, 'info');
       } else {
         membersList = membersList.map((m) =>
           m._id === selectedMember._id
@@ -265,6 +261,7 @@ function MemberManagement() {
                 ...m,
                 ...formData,
                 isStarred: Boolean(formData.isStarred),
+                chittiCount: formData.chittiCount || 1,
                 initialPendingPaise: Math.max(0, Math.round((Number(formData.initialPendingAmount) || 0) * 100))
               }
             : m
@@ -278,10 +275,7 @@ function MemberManagement() {
           memberName: formData.name
         });
         setMembers(membersList);
-        setFeedback({
-          type: 'success',
-          message: `Member ${formData.name} updated in offline mode! Will update to database when online.`
-        });
+        showToast(`Member ${formData.name} updated in offline mode! Will sync when online.`, 'info');
       }
 
       // Persist assigned dates into createdDates list
@@ -305,15 +299,17 @@ function MemberManagement() {
 
     try {
       if (modalMode === 'add') {
-        const res = await axios.post(`${apiBaseUrl}/members`, formData, { timeout: 4000 });
-        setFeedback({ type: 'success', message: res.data.message });
+        const payload = { ...formData, chittiCount: formData.chittiCount || 1 };
+        const res = await axios.post(`${apiBaseUrl}/members`, payload, { timeout: 4000 });
+        showToast(res.data.message, 'success');
       } else {
-        const res = await axios.put(`${apiBaseUrl}/members/${selectedMember._id}`, formData, { timeout: 4000 });
-        setFeedback({ type: 'success', message: res.data.message });
+        const payload = { ...formData, chittiCount: formData.chittiCount || 1 };
+        const res = await axios.put(`${apiBaseUrl}/members/${selectedMember._id}`, payload, { timeout: 4000 });
+        showToast(res.data.message, 'success');
         const cached = getOfflineMembers();
         if (cached && Array.isArray(cached.members)) {
           cached.members = cached.members.map((m) =>
-            m._id === selectedMember._id ? { ...m, ...formData } : m
+            m._id === selectedMember._id ? { ...m, ...payload } : m
           );
           saveOfflineMembers(cached);
         }
@@ -353,13 +349,10 @@ function MemberManagement() {
 
     try {
       const res = await axios.patch(`${apiBaseUrl}/members/${member._id}/${action}`);
-      setFeedback({ type: 'success', message: res.data.message });
+      showToast(res.data.message, 'success');
       fetchMembers();
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Action failed.'
-      });
+      showToast(err.response?.data?.message || 'Action failed.', 'danger');
     }
   };
 
@@ -392,19 +385,13 @@ function MemberManagement() {
     try {
       const payload = deleteSelectedDates.length > 0 ? { dates: deleteSelectedDates } : {};
       const res = await axios.delete(`${apiBaseUrl}/members/${deleteTargetMember._id}/payments`, { data: payload });
-      setFeedback({
-        type: 'success',
-        message: res.data?.message || `Deleted payments for ${deleteTargetMember.name}.`
-      });
+      showToast(res.data?.message || `Deleted payments for ${deleteTargetMember.name}.`, 'success');
       fetchMembers();
       setShowDeleteModal(false);
       setDeleteTargetMember(null);
       setDeleteSelectedDates([]);
     } catch (err) {
-      setFeedback({
-        type: 'danger',
-        message: err.response?.data?.message || 'Failed to delete payments.'
-      });
+      showToast(err.response?.data?.message || 'Failed to delete payments.', 'danger');
     } finally {
       setDeletingPayments(false);
     }
@@ -472,20 +459,6 @@ function MemberManagement() {
       </div>
 
       <div className="card-body p-4">
-        {/* Feedback Alert */}
-        {feedback && (
-          <div className={`alert alert-${feedback.type} alert-dismissible fade show`} role="alert">
-            <i className={`bi bi-${feedback.type === 'success' ? 'check-circle' : 'exclamation-triangle'}-fill me-2`}></i>
-            {feedback.message}
-            <button
-              type="button"
-              className="btn-close"
-              onClick={() => setFeedback(null)}
-              aria-label="Close"
-            ></button>
-          </div>
-        )}
-
         {/* Collection Date Tabs */}
         <div className="mb-4">
           <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-2">
@@ -662,6 +635,11 @@ function MemberManagement() {
                           <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
                         ) : null}
                         <span className="fw-semibold text-dark">{member.name}</span>
+                        {(member.chittiCount > 1) && (
+                          <span className="badge bg-primary text-white" style={{ fontSize: '11px' }} title={`${member.chittiCount} Chittis`}>
+                            {member.chittiCount} Chittis
+                          </span>
+                        )}
                         {member.initialPendingPaise > 0 && (
                           <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style={{ fontSize: '10px' }} title="Initial/Previous Pending Debt">
                             Prev Pending: ₹{((member.initialPendingPaise || 0) / 100).toLocaleString('en-IN')}
@@ -875,6 +853,29 @@ function MemberManagement() {
                     />
                     <small className="text-muted">
                       Include country code (e.g., +91 for India) for WhatsApp links.
+                    </small>
+                  </div>
+
+                  {/* Chitti Count (Single, 2 Chittis, 3 Chittis etc.) */}
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold text-secondary">
+                      Number of Chittis <span className="text-muted">(Default: 1)</span>
+                    </label>
+                    <div className="input-group" style={{ maxWidth: '200px' }}>
+                      <span className="input-group-text bg-light fw-bold"><i className="bi bi-stack"></i></span>
+                      <input
+                        type="number"
+                        className="form-control fw-bold"
+                        min="1"
+                        max="10"
+                        step="1"
+                        value={formData.chittiCount || 1}
+                        onChange={(e) => setFormData({ ...formData, chittiCount: parseInt(e.target.value, 10) || 1 })}
+                        required
+                      />
+                    </div>
+                    <small className="text-muted">
+                      Example: If basic amount is ₹4,000 and person holds 3 chittis, their amount will be ₹12,000.
                     </small>
                   </div>
 
@@ -1130,6 +1131,7 @@ function MemberManagement() {
           </div>
         </div>
       )}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

@@ -7,7 +7,6 @@ import SyncStatusButton from './components/SyncStatusButton';
 import MainDashboard from './components/MainDashboard';
 import CollectionDetails from './components/CollectionDetails';
 import MemberManagement from './components/MemberManagement';
-import CollectionConfigCard from './components/CollectionConfigCard';
 import ActivityHistory from './components/ActivityHistory';
 
 const MONTHS = [
@@ -28,7 +27,6 @@ const MONTHS = [
 const TAB_INFO = {
   dashboard: { label: 'Dashboard', icon: 'bi-speedometer2' },
   members: { label: 'Members Directory', icon: 'bi-people' },
-  config: { label: 'Collection Dates & Amount', icon: 'bi-calendar-event' },
   logs: { label: 'Activity Logs', icon: 'bi-clock-history' }
 };
 
@@ -36,7 +34,7 @@ function MainApp() {
   const { user, loading, isAdmin } = useAuth();
   const [selectedMonth, setSelectedMonth] = useState(10); // Default: October 2026 per specs
   const [selectedYear, setSelectedYear] = useState(2026);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'config' | 'logs'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'logs'
   const [selectedDate, setSelectedDate] = useState(null); // When set, shows CollectionDetails for that date
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -173,13 +171,6 @@ function MainApp() {
         ) : activeTab === 'members' ? (
           <div className="container py-4">
             <MemberManagement />
-          </div>
-        ) : activeTab === 'config' ? (
-          <div className="container py-4">
-            <CollectionConfigCard
-              selectedMonth={selectedMonth}
-              selectedYear={selectedYear}
-            />
           </div>
         ) : (
           <ActivityHistory />

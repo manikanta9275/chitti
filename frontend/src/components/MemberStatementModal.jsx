@@ -57,7 +57,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     }
 
     const lastEntry = statement[statement.length - 1];
-    const totalDueSum = statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0);
+    const totalActualSum = statement.reduce((sum, item) => sum + (Number(item.actualAmount) || 0), 0);
     const totalPaid = statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
     const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
     const printDate = new Date().toLocaleDateString('en-IN', {
@@ -284,13 +284,23 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
           <tbody>
             ${rowsHtml}
           </tbody>
+          <tfoot>
+            <tr style="background-color: #f1f3f5; font-weight: 800; border-top: 2px solid #212529;">
+              <td colspan="4" style="text-align: right; color: #212529; font-size: 11px;">Total Amount:</td>
+              <td style="text-align: right; color: #212529; font-size: 11px;">₹${totalActualSum.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; color: #6c757d; font-weight: normal; font-size: 11px;">—</td>
+              <td style="text-align: right; color: #198754; font-size: 11px;">₹${totalPaid.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; color: ${finalBalance > 0 ? '#dc3545' : '#198754'}; font-size: 11px;">₹${finalBalance.toLocaleString('en-IN')}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
 
         <div class="summary-card">
           <table class="summary-table">
             <tr>
               <td><strong>Total Amount:</strong></td>
-              <td style="text-align: right; font-weight: 700; color: #0d6efd;">₹${totalDueSum.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; font-weight: 700; color: #0d6efd;">₹${totalActualSum.toLocaleString('en-IN')}</td>
             </tr>
             <tr>
               <td><strong>Total Amount Paid:</strong></td>
@@ -371,7 +381,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
   const handleShareWhatsAppStatement = () => {
     if (!statement || statement.length === 0) return;
 
-    const totalDueSum = statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0);
+    const totalActualSum = statement.reduce((sum, item) => sum + (Number(item.actualAmount) || 0), 0);
     const totalPaidSum = statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0);
     const lastEntry = statement[statement.length - 1];
     const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
@@ -405,7 +415,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     });
 
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `*Total Amount:* ₹${totalDueSum.toLocaleString('en-IN')}\n`;
+    text += `*Total Amount:* ₹${totalActualSum.toLocaleString('en-IN')}\n`;
     text += `*Total Amount Paid:* ₹${totalPaidSum.toLocaleString('en-IN')}\n`;
     text += `*Net Remaining Balance Due:* ₹${finalBalance.toLocaleString('en-IN')}\n\n`;
     text += `Regards,\n`;
@@ -566,11 +576,14 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
                   </tbody>
                   <tfoot className="table-light fw-bold small">
                     <tr className="border-top border-2">
-                      <td colSpan="5" className="text-end text-dark">
+                      <td colSpan="4" className="text-end text-dark">
                         Total Amount:
                       </td>
-                      <td className="text-end text-primary">
-                        ₹{statement.reduce((sum, item) => sum + (Number(item.totalDue) || 0), 0).toLocaleString('en-IN')}
+                      <td className="text-end text-dark">
+                        ₹{statement.reduce((sum, item) => sum + (Number(item.actualAmount) || 0), 0).toLocaleString('en-IN')}
+                      </td>
+                      <td className="text-end text-muted fw-normal">
+                        —
                       </td>
                       <td className="text-end text-success">
                         ₹{statement.reduce((sum, item) => sum + (Number(item.paidAmount) || 0), 0).toLocaleString('en-IN')}

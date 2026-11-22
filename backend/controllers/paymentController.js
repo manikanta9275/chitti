@@ -124,7 +124,11 @@ const getCollectionPayments = async (req, res) => {
       );
 
       let carryForwardPaise = 0;
-      if (!isBeforeJoinPeriod && prevPeriod && prevPaymentsMap.has(mIdStr)) {
+      const existing = existingPaymentsMap.get(mIdStr);
+
+      if (existing && existing.manualPendingPaise !== null && existing.manualPendingPaise !== undefined) {
+        carryForwardPaise = existing.manualPendingPaise;
+      } else if (!isBeforeJoinPeriod && prevPeriod && prevPaymentsMap.has(mIdStr)) {
         const prevPayment = prevPaymentsMap.get(mIdStr);
         const isPrevPaid = prevPayment.status === 'PAID' || prevPayment.totalPaidPaise >= prevPayment.actualAmountPaise;
         if (!isPrevPaid) {
@@ -133,12 +137,14 @@ const getCollectionPayments = async (req, res) => {
             carryForwardPaise = bal;
           }
         }
+      } else if (member.initialPendingPaise && member.initialPendingPaise > 0) {
+        // Opening / prior debt from before joining or starting the system
+        carryForwardPaise = member.initialPendingPaise;
       }
 
       memberPendingMap[mIdStr] = carryForwardPaise / 100;
 
       const correctActualPaise = period.actualAmountPaise + carryForwardPaise;
-      const existing = existingPaymentsMap.get(mIdStr);
 
       if (!existing && isDateConfigured) {
         newPaymentsToInsert.push({
@@ -146,6 +152,7 @@ const getCollectionPayments = async (req, res) => {
           collectionPeriodId: period._id,
           collectionDate: dateNum,
           actualAmountPaise: correctActualPaise,
+          manualPendingPaise: (existing && existing.manualPendingPaise !== null) ? existing.manualPendingPaise : (carryForwardPaise > 0 && !prevPeriod ? carryForwardPaise : null),
           totalPaidPaise: 0,
           status: 'NOT_PAID',
           lastUpdatedByName: 'System'
@@ -800,7 +807,7 @@ const getMemberStatement = async (req, res) => {
       .populate('enteredBy', 'displayName username')
       .sort({ createdAt: 1 });
 
-    let runningPendingRupees = 0;
+    let runningPendingRupees = (member.initialPendingPaise || 0) / 100;
     const statement = [];
 
     // Loop through each payment record in chronological order
@@ -811,6 +818,9 @@ const getMemberStatement = async (req, res) => {
       const baseActualRupees = period.actualAmountRupees || period.actualAmountPaise / 100;
       const pTxs = transactions.filter(t => t.paymentId.toString() === p._id.toString());
       let currentPendingBefore = runningPendingRupees;
+      if (p.manualPendingPaise !== null && p.manualPendingPaise !== undefined) {
+        currentPendingBefore = p.manualPendingPaise / 100;
+      }
       let currentTotalDue = currentPendingBefore + baseActualRupees;
 
       if (pTxs.length > 0) {
@@ -940,11 +950,74 @@ const undoLastTransaction = async (req, res) => {
   }
 };
 
+// @desc    Manually update/override pending amount for a payment record
+// @route   PUT /api/payments/:id/manual-pending
+// @access  Protected
+const updateManualPendingAmount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { pendingAmount } = req.body;
+
+    const numPending = parseFloat(pendingAmount);
+    if (isNaN(numPending) || numPending < 0) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid pending amount (0 or greater).' });
+    }
+
+    const payment = await Payment.findById(id).populate('collectionPeriodId memberId');
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment record not found.' });
+    }
+
+    const period = payment.collectionPeriodId;
+    const basePaise = period ? period.actualAmountPaise : 500000;
+    const pendingPaise = Math.round(numPending * 100);
+
+    const oldActual = payment.actualAmountPaise;
+    payment.manualPendingPaise = pendingPaise;
+    payment.actualAmountPaise = basePaise + pendingPaise;
+    payment.recalculateStatus();
+    payment.lastUpdatedBy = req.user._id;
+    payment.lastUpdatedByName = req.user.displayName || req.user.username;
+
+    await payment.save();
+
+    await ActivityLog.create({
+      userId: req.user._id,
+      username: req.user.username,
+      userDisplayName: req.user.displayName || req.user.name || req.user.username,
+      action: 'PAYMENT_PENDING_MANUAL_ADJUST',
+      entityType: 'Payment',
+      entityId: payment._id,
+      previousValues: { actualAmountPaise: oldActual },
+      newValues: {
+        manualPendingPaise: pendingPaise,
+        actualAmountPaise: payment.actualAmountPaise,
+        status: payment.status
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Pending amount updated to ₹${numPending.toLocaleString('en-IN')}.`,
+      payment: {
+        ...payment.toObject(),
+        manualPendingRupees: numPending,
+        actualAmountRupees: payment.actualAmountPaise / 100,
+        balanceRupees: Math.max(0, (payment.actualAmountPaise - payment.totalPaidPaise) / 100)
+      }
+    });
+  } catch (error) {
+    console.error('updateManualPendingAmount error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server error updating pending amount.' });
+  }
+};
+
 module.exports = {
   getCollectionPayments,
   addPaymentTransaction,
   getPaymentDetails,
   getDashboardSummary,
   getMemberStatement,
-  undoLastTransaction
+  undoLastTransaction,
+  updateManualPendingAmount
 };

@@ -74,7 +74,7 @@ const getMemberById = async (req, res) => {
 // @access  Admin only
 const createMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Member name is required.' });
     if (!phoneNumber || !phoneNumber.trim()) return res.status(400).json({ success: false, message: 'Phone number is required.' });
     let dates = [5];
@@ -84,12 +84,15 @@ const createMember = async (req, res) => {
     }
     const cleanPhone = phoneNumber.trim().replace(/\s+/g, '');
     const memberId = await generateNextMemberId();
+    const initPendingPaise = Math.max(0, Math.round((Number(initialPendingAmount) || 0) * 100));
+
     const member = await Member.create({
       memberId,
       name: name.trim(),
       phoneNumber: cleanPhone,
       assignedDates: dates,
       isStarred: Boolean(isStarred),
+      initialPendingPaise: initPendingPaise,
       isActive: true
     });
     await ActivityLog.create({
@@ -105,7 +108,8 @@ const createMember = async (req, res) => {
         name: member.name,
         phoneNumber: member.phoneNumber,
         assignedDates: member.assignedDates,
-        isStarred: member.isStarred
+        isStarred: member.isStarred,
+        initialPendingPaise: member.initialPendingPaise
       }
     });
     return res.status(201).json({ success: true, message: `Member ${member.name} (${member.memberId}) added successfully for date(s): ${member.assignedDates.map(d => `${d}th`).join(', ')}.`, member });
@@ -120,7 +124,7 @@ const createMember = async (req, res) => {
 // @access  Admin only
 const updateMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount } = req.body;
     const member = await Member.findById(req.params.id);
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found.' });
@@ -130,7 +134,8 @@ const updateMember = async (req, res) => {
       name: member.name,
       phoneNumber: member.phoneNumber,
       assignedDates: member.assignedDates,
-      isStarred: member.isStarred
+      isStarred: member.isStarred,
+      initialPendingPaise: member.initialPendingPaise
     };
 
     if (name && name.trim()) member.name = name.trim();
@@ -145,6 +150,9 @@ const updateMember = async (req, res) => {
     }
     if (typeof isStarred === 'boolean') {
       member.isStarred = isStarred;
+    }
+    if (initialPendingAmount !== undefined) {
+      member.initialPendingPaise = Math.max(0, Math.round((Number(initialPendingAmount) || 0) * 100));
     }
 
     await member.save();

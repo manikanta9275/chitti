@@ -39,12 +39,24 @@ const memberSchema = new mongoose.Schema(
     isStarred: {
       type: Boolean,
       default: false
+    },
+    // Initial / previous pending balance carried over (in paise)
+    initialPendingPaise: {
+      type: Number,
+      default: 0,
+      min: 0
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
+
+memberSchema.virtual('initialPendingRupees').get(function () {
+  return (this.initialPendingPaise || 0) / 100;
+});
 
 memberSchema.index({ isActive: 1, assignedDates: 1 });
 

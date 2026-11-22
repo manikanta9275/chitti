@@ -38,6 +38,11 @@ const paymentSchema = new mongoose.Schema(
       default: 'NOT_PAID',
       index: true
     },
+    // Optional manual pending override (in integer paise)
+    manualPendingPaise: {
+      type: Number,
+      default: null
+    },
     lastUpdatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
@@ -69,6 +74,10 @@ paymentSchema.virtual('balancePaise').get(function () {
 
 paymentSchema.virtual('balanceRupees').get(function () {
   return (this.actualAmountPaise - this.totalPaidPaise) / 100;
+});
+
+paymentSchema.virtual('manualPendingRupees').get(function () {
+  return this.manualPendingPaise !== null && this.manualPendingPaise !== undefined ? this.manualPendingPaise / 100 : null;
 });
 
 // Helper method to recalculate status based on amounts

@@ -158,7 +158,8 @@ function MemberManagement() {
       name: '',
       phoneNumber: '+91',
       assignedDates: [defaultDate],
-      isStarred: false
+      isStarred: false,
+      initialPendingAmount: ''
     });
     setFormError('');
     setCustomDayInput('');
@@ -172,7 +173,8 @@ function MemberManagement() {
       name: member.name,
       phoneNumber: member.phoneNumber,
       assignedDates: member.assignedDates && member.assignedDates.length > 0 ? member.assignedDates : [1],
-      isStarred: member.isStarred !== undefined ? Boolean(member.isStarred) : true
+      isStarred: member.isStarred !== undefined ? Boolean(member.isStarred) : true,
+      initialPendingAmount: member.initialPendingPaise ? member.initialPendingPaise / 100 : (member.initialPendingRupees || '')
     });
     setFormError('');
     setCustomDayInput('');
@@ -240,6 +242,7 @@ function MemberManagement() {
           phoneNumber: formData.phoneNumber.trim(),
           assignedDates: formData.assignedDates,
           isStarred: Boolean(formData.isStarred),
+          initialPendingPaise: Math.max(0, Math.round((Number(formData.initialPendingAmount) || 0) * 100)),
           isActive: true
         };
         membersList.push(newMem);
@@ -257,7 +260,14 @@ function MemberManagement() {
         });
       } else {
         membersList = membersList.map((m) =>
-          m._id === selectedMember._id ? { ...m, ...formData, isStarred: Boolean(formData.isStarred) } : m
+          m._id === selectedMember._id
+            ? {
+                ...m,
+                ...formData,
+                isStarred: Boolean(formData.isStarred),
+                initialPendingPaise: Math.max(0, Math.round((Number(formData.initialPendingAmount) || 0) * 100))
+              }
+            : m
         );
         cached.members = membersList;
         saveOfflineMembers(cached);
@@ -647,11 +657,16 @@ function MemberManagement() {
                       </span>
                     </td>
                     <td>
-                      <div className="d-flex align-items-center gap-1">
+                      <div className="d-flex align-items-center gap-1 flex-wrap">
                         {member.isStarred ? (
                           <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
                         ) : null}
                         <span className="fw-semibold text-dark">{member.name}</span>
+                        {member.initialPendingPaise > 0 && (
+                          <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style={{ fontSize: '10px' }} title="Initial/Previous Pending Debt">
+                            Prev Pending: ₹{((member.initialPendingPaise || 0) / 100).toLocaleString('en-IN')}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -849,6 +864,28 @@ function MemberManagement() {
                     />
                     <small className="text-muted">
                       Include country code (e.g., +91 for India) for WhatsApp links.
+                    </small>
+                  </div>
+
+                  {/* Previous / Initial Pending Amount */}
+                  <div className="mb-3">
+                    <label className="form-label small fw-semibold text-secondary">
+                      Previous / Initial Pending Amount (₹) <span className="text-muted">(Optional)</span>
+                    </label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light fw-bold text-secondary">₹</span>
+                      <input
+                        type="number"
+                        className="form-control fw-semibold"
+                        placeholder="0"
+                        min="0"
+                        step="1"
+                        value={formData.initialPendingAmount || ''}
+                        onChange={(e) => setFormData({ ...formData, initialPendingAmount: e.target.value })}
+                      />
+                    </div>
+                    <small className="text-muted">
+                      If this member has past unpaid balance/debt from previous months or before using this app, enter it here.
                     </small>
                   </div>
 

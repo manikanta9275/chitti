@@ -10,6 +10,7 @@ import {
 
 function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, onAfterPayment }) {
   const { user } = useAuth();
+  const [activePayment, setActivePayment] = useState(payment);
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,27 +19,40 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('record'); // 'record' | 'history'
 
+  // Manual pending amount editing state
+  const [isEditingPending, setIsEditingPending] = useState(false);
+  const [pendingInput, setPendingInput] = useState('');
+  const [savingPending, setSavingPending] = useState(false);
+  const [pendingFeedback, setPendingFeedback] = useState('');
+
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-  const memberName = payment.memberId?.name || 'Member';
-  const memberId = payment.memberId?.memberId || '';
-  const actualRupees = payment.actualAmountRupees || payment.actualAmountPaise / 100;
-  const paidRupees = payment.totalPaidRupees || payment.totalPaidPaise / 100;
-  const remainingRupees = payment.balanceRupees !== undefined ? payment.balanceRupees : Math.max(0, actualRupees - paidRupees);
+  useEffect(() => {
+    setActivePayment(payment);
+  }, [payment]);
+
+  const memberName = activePayment.memberId?.name || 'Member';
+  const memberId = activePayment.memberId?.memberId || '';
+  const actualRupees = activePayment.actualAmountRupees || (activePayment.actualAmountPaise ? activePayment.actualAmountPaise / 100 : 0);
+  const paidRupees = activePayment.totalPaidRupees || (activePayment.totalPaidPaise ? activePayment.totalPaidPaise / 100 : 0);
+  const remainingRupees = activePayment.balanceRupees !== undefined ? activePayment.balanceRupees : Math.max(0, actualRupees - paidRupees);
+  const manualPendingRupees = activePayment.manualPendingRupees !== undefined && activePayment.manualPendingRupees !== null
+    ? activePayment.manualPendingRupees
+    : (activePayment.manualPendingPaise !== null && activePayment.manualPendingPaise !== undefined ? activePayment.manualPendingPaise / 100 : null);
 
   // Fetch full details and transactions history
   const fetchPaymentDetails = async () => {
     setFetchingHistory(true);
     try {
-      const res = await axios.get(`${apiBaseUrl}/payments/${payment._id}`, { timeout: 4000 });
+      const res = await axios.get(`${apiBaseUrl}/payments/${activePayment._id}`, { timeout: 4000 });
       if (res.data.success) {
         const txs = res.data.transactions || [];
         setTransactions(txs);
-        saveOfflineTransactions(payment._id, txs);
+        saveOfflineTransactions(activePayment._id, txs);
       }
     } catch (err) {
       // Offline fallback: load cached transactions
-      const cached = getOfflineTransactions(payment._id);
+      const cached = getOfflineTransactions(activePayment._id);
       if (cached && cached.length > 0) {
         setTransactions(cached);
       }
@@ -49,18 +63,46 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
 
   useEffect(() => {
     fetchPaymentDetails();
-  }, [payment._id]);
+  }, [activePayment._id]);
 
   const handleUndoLast = async () => {
     if (!window.confirm('Undo the last payment transaction? This will subtract that amount from the total paid.')) return;
     try {
-      const res = await axios.delete(`${apiBaseUrl}/payments/${payment._id}/transactions/last`, { timeout: 6000 });
+      const res = await axios.delete(`${apiBaseUrl}/payments/${activePayment._id}/transactions/last`, { timeout: 6000 });
       if (res.data.success) {
+        setActivePayment(res.data.payment);
         if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
         fetchPaymentDetails(); // refresh transactions list
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to undo last transaction.');
+    }
+  };
+
+  const handleSavePending = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const num = parseFloat(pendingInput);
+    if (isNaN(num) || num < 0) {
+      setError('Please enter a valid pending amount (0 or greater).');
+      return;
+    }
+    setSavingPending(true);
+    setError('');
+    try {
+      const res = await axios.put(`${apiBaseUrl}/payments/${activePayment._id}/manual-pending`, {
+        pendingAmount: num
+      }, { timeout: 6000 });
+      if (res.data.success) {
+        setActivePayment(res.data.payment);
+        setIsEditingPending(false);
+        setPendingFeedback(`Pending amount updated to ₹${num.toLocaleString('en-IN')}`);
+        if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
+        setTimeout(() => setPendingFeedback(''), 4000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update pending amount.');
+    } finally {
+      setSavingPending(false);
     }
   };
 
@@ -79,7 +121,7 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
 
     // If completely offline, record directly to local storage and sync queue
     if (!isOnline() || !navigator.onLine) {
-      const updatedPayment = recordPaymentLocally(payment, numAmount, txType, notes, user, true);
+      const updatedPayment = recordPaymentLocally(activePayment, numAmount, txType, notes, user, true);
       if (onPaymentUpdated) {
         onPaymentUpdated(updatedPayment);
       }
@@ -91,14 +133,14 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
     }
 
     try {
-      const res = await axios.post(`${apiBaseUrl}/payments/${payment._id}/transactions`, {
+      const res = await axios.post(`${apiBaseUrl}/payments/${activePayment._id}/transactions`, {
         amount: numAmount,
         transactionType: txType,
         notes
       }, { timeout: 6000 });
 
       if (res.data.success) {
-        recordPaymentLocally(payment, numAmount, txType, notes, user, false);
+        recordPaymentLocally(activePayment, numAmount, txType, notes, user, false);
         if (onPaymentUpdated) {
           onPaymentUpdated(res.data.payment);
         }
@@ -111,7 +153,7 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
       // If network error (offline or timeout or no server response), save locally in device!
       const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
       if (isNetworkError) {
-        const updatedPayment = recordPaymentLocally(payment, numAmount, txType, notes, user, true);
+        const updatedPayment = recordPaymentLocally(activePayment, numAmount, txType, notes, user, true);
         if (onPaymentUpdated) {
           onPaymentUpdated(updatedPayment);
         }
@@ -172,12 +214,94 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
 
           {/* Summary Strip */}
           <div className="px-4 py-3 bg-white border-bottom">
-            <div className={`p-3 border rounded text-center ${remainingRupees === 0 ? 'bg-light' : 'bg-warning-subtle border-warning-subtle'}`}>
-              <span className="text-secondary small d-block mb-1">Remaining Balance</span>
-              <span className={`fw-bold fs-4 ${remainingRupees === 0 ? 'text-muted' : 'text-danger'}`}>
-                ₹{remainingRupees.toLocaleString('en-IN')}
-              </span>
+            <div className="row g-2 text-center">
+              <div className="col-4">
+                <div className="p-2 border rounded bg-light">
+                  <span className="text-secondary small d-block" style={{ fontSize: '11px' }}>Total Due</span>
+                  <span className="fw-bold text-dark fs-5">
+                    ₹{actualRupees.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+              <div className="col-4">
+                <div className="p-2 border rounded bg-light">
+                  <span className="text-secondary small d-block" style={{ fontSize: '11px' }}>Total Paid</span>
+                  <span className="fw-bold text-success fs-5">
+                    ₹{paidRupees.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+              <div className="col-4">
+                <div className={`p-2 border rounded ${remainingRupees === 0 ? 'bg-light' : 'bg-warning-subtle border-warning-subtle'}`}>
+                  <span className="text-secondary small d-block" style={{ fontSize: '11px' }}>Remaining</span>
+                  <span className={`fw-bold fs-5 ${remainingRupees === 0 ? 'text-muted' : 'text-danger'}`}>
+                    ₹{remainingRupees.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* Manual Pending Amount Bar / Quick Edit */}
+            <div className="mt-2 pt-2 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div className="d-flex align-items-center gap-2 small">
+                <span className="badge bg-secondary-subtle text-secondary border">
+                  <i className="bi bi-clock-history me-1"></i>Previous Pending:
+                </span>
+                <span className="fw-bold text-danger">
+                  {manualPendingRupees !== null ? `₹${manualPendingRupees.toLocaleString('en-IN')} (Manual)` : 'Auto (calculated)'}
+                </span>
+              </div>
+              {!isEditingPending ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm py-0 px-2 shadow-xs"
+                  style={{ fontSize: '11px' }}
+                  onClick={() => {
+                    setPendingInput(manualPendingRupees !== null ? String(manualPendingRupees) : '');
+                    setIsEditingPending(true);
+                  }}
+                >
+                  <i className="bi bi-pencil-square me-1"></i>Set Pending Manually
+                </button>
+              ) : (
+                <div className="d-flex align-items-center gap-1">
+                  <div className="input-group input-group-sm" style={{ width: '150px' }}>
+                    <span className="input-group-text py-0">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="form-control form-control-sm py-0"
+                      placeholder="Pending ₹"
+                      value={pendingInput}
+                      onChange={(e) => setPendingInput(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm py-0 px-2"
+                    style={{ fontSize: '11px' }}
+                    disabled={savingPending}
+                    onClick={handleSavePending}
+                  >
+                    {savingPending ? '...' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm py-0 px-2"
+                    style={{ fontSize: '11px' }}
+                    onClick={() => setIsEditingPending(false)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+            {pendingFeedback && (
+              <div className="alert alert-success py-1 px-2 mt-2 mb-0 small text-center">
+                <i className="bi bi-check-circle me-1"></i>{pendingFeedback}
+              </div>
+            )}
           </div>
 
           {/* Modal Body */}

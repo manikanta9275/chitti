@@ -6,7 +6,8 @@ const {
   getPaymentDetails,
   getDashboardSummary,
   getMemberStatement,
-  undoLastTransaction
+  undoLastTransaction,
+  updateManualPendingAmount
 } = require('../controllers/paymentController');
 const { protect } = require('../middleware/auth');
 
@@ -18,6 +19,7 @@ router.get('/dashboard/summary', getDashboardSummary);
 router.get('/member-statement/:memberId', getMemberStatement);
 router.get('/:id', getPaymentDetails);
 router.post('/:id/transactions', addPaymentTransaction);
+router.put('/:id/manual-pending', updateManualPendingAmount);
 router.delete('/:id/transactions/last', undoLastTransaction);
 
 module.exports = router;

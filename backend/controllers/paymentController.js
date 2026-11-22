@@ -1015,6 +1015,86 @@ const updateManualPendingAmount = async (req, res) => {
   }
 };
 
+// @desc    Update/set the base actual amount for this month's collection (applies to period and updates payments)
+// @route   PUT /api/payments/:id/collection-amount
+// @access  Protected
+const updatePaymentCollectionAmount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, applyToAll } = req.body;
+
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount < 0) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid amount (0 or greater).' });
+    }
+
+    const payment = await Payment.findById(id).populate('collectionPeriodId memberId');
+    if (!payment) {
+      return res.status(404).json({ success: false, message: 'Payment record not found.' });
+    }
+
+    const period = payment.collectionPeriodId;
+    const amountPaise = Math.round(numAmount * 100);
+
+    // If applyToAll is true (default), update the collection period's actualAmountPaise
+    // so every member in this month gets this base amount (multiplied by their chittiCount)
+    if (applyToAll !== false && period) {
+      period.actualAmountPaise = amountPaise;
+      period.basicAmountPaise = amountPaise;
+      await period.save();
+
+      // Update all payment records for this period according to each member's chittiCount and pending
+      const allPayments = await Payment.find({ collectionPeriodId: period._id }).populate('memberId');
+      for (const p of allPayments) {
+        const chittiCount = p.memberId?.chittiCount || p.chittiCount || 1;
+        const pendingPaise = p.manualPendingPaise !== null && p.manualPendingPaise !== undefined
+          ? p.manualPendingPaise
+          : Math.max(0, p.actualAmountPaise - (p.chittiCount || 1) * (payment.actualAmountPaise || 0));
+        
+        p.actualAmountPaise = (amountPaise * chittiCount) + (pendingPaise || 0);
+        p.recalculateStatus();
+        p.lastUpdatedBy = req.user._id;
+        p.lastUpdatedByName = req.user.displayName || req.user.username;
+        await p.save();
+      }
+    } else {
+      // Apply only to this member's payment
+      const pendingPaise = payment.manualPendingPaise || 0;
+      payment.actualAmountPaise = amountPaise + pendingPaise;
+      payment.recalculateStatus();
+      payment.lastUpdatedBy = req.user._id;
+      payment.lastUpdatedByName = req.user.displayName || req.user.username;
+      await payment.save();
+    }
+
+    const updatedPayment = await Payment.findById(id).populate('collectionPeriodId memberId');
+
+    await ActivityLog.create({
+      userId: req.user._id,
+      username: req.user.username,
+      userDisplayName: req.user.displayName || req.user.name || req.user.username,
+      action: 'PAYMENT_AMOUNT_ADJUST',
+      entityType: 'Payment',
+      entityId: payment._id,
+      previousValues: { actualAmountPaise: payment.actualAmountPaise },
+      newValues: {
+        actualAmountPaise: updatedPayment.actualAmountPaise,
+        status: updatedPayment.status,
+        monthlyBaseRupees: numAmount
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Month collection amount set to ₹${numAmount.toLocaleString('en-IN')}${applyToAll !== false ? ' for all members' : ''}.`,
+      payment: updatedPayment
+    });
+  } catch (error) {
+    console.error('updatePaymentCollectionAmount error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Server error setting collection amount.' });
+  }
+};
+
 module.exports = {
   getCollectionPayments,
   addPaymentTransaction,
@@ -1022,5 +1102,6 @@ module.exports = {
   getDashboardSummary,
   getMemberStatement,
   undoLastTransaction,
-  updateManualPendingAmount
+  updateManualPendingAmount,
+  updatePaymentCollectionAmount
 };

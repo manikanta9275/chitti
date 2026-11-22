@@ -25,6 +25,13 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
   const [savingPending, setSavingPending] = useState(false);
   const [pendingFeedback, setPendingFeedback] = useState('');
 
+  // Month Collection Amount editing state (like Collection Dates & Amount config)
+  const [isEditingCollectionAmount, setIsEditingCollectionAmount] = useState(false);
+  const [collectionAmountInput, setCollectionAmountInput] = useState('');
+  const [applyAmountToAll, setApplyAmountToAll] = useState(true);
+  const [savingCollectionAmount, setSavingCollectionAmount] = useState(false);
+  const [collectionAmountFeedback, setCollectionAmountFeedback] = useState('');
+
   const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   useEffect(() => {
@@ -103,6 +110,80 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
       setError(err.response?.data?.message || 'Failed to update pending amount.');
     } finally {
       setSavingPending(false);
+    }
+  };
+
+  const handleSaveCollectionAmount = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const num = parseFloat(collectionAmountInput);
+    if (isNaN(num) || num < 0) {
+      setError('Please enter a valid amount (0 or greater).');
+      return;
+    }
+    setSavingCollectionAmount(true);
+    setError('');
+    try {
+      const res = await axios.put(`${apiBaseUrl}/payments/${activePayment._id}/collection-amount`, {
+        amount: num,
+        applyToAll: applyAmountToAll
+      }, { timeout: 6000 });
+      if (res.data.success) {
+        setActivePayment(res.data.payment);
+        setIsEditingCollectionAmount(false);
+        setCollectionAmountFeedback(`Month collection amount set to ₹${num.toLocaleString('en-IN')}${applyAmountToAll ? ' (all members)' : ''}`);
+        if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
+        setTimeout(() => setCollectionAmountFeedback(''), 4000);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update collection amount.');
+    } finally {
+      setSavingCollectionAmount(false);
+    }
+  };
+
+  // Quick 1-Click "Customer Paid Full Amount" (like Khata Book)
+  const handleQuickPayFull = async () => {
+    if (remainingRupees <= 0) return;
+    setAmount(String(remainingRupees));
+    // Immediately submit the full remaining amount
+    const numAmount = remainingRupees;
+    setLoading(true);
+    setError('');
+    const txType = 'FULL_PAYMENT';
+    const autoNotes = 'Paid full balance (1-click Khata Book)';
+
+    if (!isOnline() || !navigator.onLine) {
+      const updatedPayment = recordPaymentLocally(activePayment, numAmount, txType, autoNotes, user, true);
+      if (onPaymentUpdated) onPaymentUpdated(updatedPayment);
+      if (onAfterPayment) onAfterPayment(updatedPayment);
+      onClose();
+      return;
+    }
+
+    try {
+      const res = await axios.post(`${apiBaseUrl}/payments/${activePayment._id}/transactions`, {
+        amount: numAmount,
+        transactionType: txType,
+        notes: autoNotes
+      }, { timeout: 6000 });
+
+      if (res.data.success) {
+        recordPaymentLocally(activePayment, numAmount, txType, autoNotes, user, false);
+        if (onPaymentUpdated) onPaymentUpdated(res.data.payment);
+        if (onAfterPayment) onAfterPayment(res.data.payment);
+        onClose();
+      }
+    } catch (err) {
+      const isNetworkError = !err.response || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
+      if (isNetworkError) {
+        const updatedPayment = recordPaymentLocally(activePayment, numAmount, txType, autoNotes, user, true);
+        if (onPaymentUpdated) onPaymentUpdated(updatedPayment);
+        if (onAfterPayment) onAfterPayment(updatedPayment);
+        onClose();
+      } else {
+        setError(err.response?.data?.message || 'Failed to record full payment.');
+        setLoading(false);
+      }
     }
   };
 
@@ -256,6 +337,126 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
               </div>
             </div>
 
+            {/* Action Bar: 2 Main Operations — "Add/Change Month Amount" + "Khata Book Paid" */}
+            <div className="mt-2 pt-2 border-top d-flex flex-wrap gap-2 justify-content-between align-items-center">
+              <div className="d-flex flex-wrap gap-2">
+                {/* Button 1: Add/Change Month Collection Amount (Collection Dates & Amount config) */}
+                <button
+                  type="button"
+                  className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1 shadow-xs fw-semibold"
+                  onClick={() => {
+                    const currentBase = activePayment.collectionPeriodId?.actualAmountRupees || 0;
+                    setCollectionAmountInput(currentBase ? String(currentBase) : '');
+                    setIsEditingCollectionAmount(!isEditingCollectionAmount);
+                    setIsEditingPending(false);
+                  }}
+                >
+                  <i className="bi bi-gear-fill"></i>
+                  Add/Set Month Amount
+                </button>
+
+                {/* Button 2: Customer Paid Full Amount (Like Khata Book App) */}
+                {remainingRupees > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-success btn-sm d-inline-flex align-items-center gap-1 shadow-xs fw-bold px-3"
+                    disabled={loading}
+                    onClick={handleQuickPayFull}
+                    title={`Record ₹${remainingRupees.toLocaleString('en-IN')} as fully paid directly`}
+                  >
+                    <i className="bi bi-check2-circle"></i>
+                    Customer Paid Full (₹{remainingRupees.toLocaleString('en-IN')})
+                  </button>
+                )}
+              </div>
+
+              {/* Set Pending Manually Button */}
+              {!isEditingPending ? (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm py-1 px-2 shadow-xs"
+                  style={{ fontSize: '12px' }}
+                  onClick={() => {
+                    setPendingInput(manualPendingRupees !== null ? String(manualPendingRupees) : '');
+                    setIsEditingPending(true);
+                    setIsEditingCollectionAmount(false);
+                  }}
+                >
+                  <i className="bi bi-clock-history me-1"></i>Edit Pending
+                </button>
+              ) : null}
+            </div>
+
+            {/* Inline Form: Add/Set Month Collection Amount (like Collection Dates & Amount) */}
+            {isEditingCollectionAmount && (
+              <div className="p-3 bg-light rounded-3 border mt-2">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span className="fw-bold small text-primary d-flex align-items-center gap-1">
+                    <i className="bi bi-cash-coin"></i> Month Base Amount Configuration
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    style={{ fontSize: '10px' }}
+                    onClick={() => setIsEditingCollectionAmount(false)}
+                  ></button>
+                </div>
+                <div className="row g-2 align-items-center">
+                  <div className="col-12 col-sm-6">
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-white fw-bold">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="form-control fw-bold"
+                        placeholder="e.g. 4000"
+                        value={collectionAmountInput}
+                        onChange={(e) => setCollectionAmountInput(e.target.value)}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div className="col-12 col-sm-6">
+                    <div className="form-check form-switch small">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="applyAllCheck"
+                        checked={applyAmountToAll}
+                        onChange={(e) => setApplyAmountToAll(e.target.checked)}
+                      />
+                      <label className="form-check-label text-secondary" htmlFor="applyAllCheck">
+                        Apply for all members (base amount)
+                      </label>
+                    </div>
+                  </div>
+                  <div className="col-12 d-flex justify-content-end gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setIsEditingCollectionAmount(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm fw-semibold"
+                      disabled={savingCollectionAmount || !collectionAmountInput}
+                      onClick={handleSaveCollectionAmount}
+                    >
+                      {savingCollectionAmount ? 'Saving...' : 'Save Amount'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {collectionAmountFeedback && (
+              <div className="alert alert-success py-1 px-2 mt-2 mb-0 small text-center">
+                <i className="bi bi-check-circle me-1"></i>{collectionAmountFeedback}
+              </div>
+            )}
+
             {/* Manual Pending Amount Bar / Quick Edit */}
             <div className="mt-2 pt-2 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
               <div className="d-flex align-items-center gap-2 small">
@@ -266,19 +467,7 @@ function PaymentModal({ payment, memberHistory = [], onClose, onPaymentUpdated, 
                   {manualPendingRupees !== null ? `₹${manualPendingRupees.toLocaleString('en-IN')} (Manual)` : 'Auto (calculated)'}
                 </span>
               </div>
-              {!isEditingPending ? (
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm py-0 px-2 shadow-xs"
-                  style={{ fontSize: '11px' }}
-                  onClick={() => {
-                    setPendingInput(manualPendingRupees !== null ? String(manualPendingRupees) : '');
-                    setIsEditingPending(true);
-                  }}
-                >
-                  <i className="bi bi-pencil-square me-1"></i>Set Pending Manually
-                </button>
-              ) : (
+              {!isEditingPending ? null : (
                 <div className="d-flex align-items-center gap-1">
                   <div className="input-group input-group-sm" style={{ width: '150px' }}>
                     <span className="input-group-text py-0">₹</span>

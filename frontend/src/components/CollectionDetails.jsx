@@ -284,7 +284,7 @@ function CollectionDetails({ month, year, date, onBack }) {
       );
     }
 
-    const presentMonthAmount = memberBaseMonthAmount || (p.actualAmountRupees || p.actualAmountPaise / 100);
+    const presentMonthAmount = memberBaseMonthAmount;
     const totalAmount = presentMonthAmount + pendingAmount;
     const paid = p.totalPaidRupees || p.totalPaidPaise / 100;
     const balance = Math.max(0, totalAmount - paid);

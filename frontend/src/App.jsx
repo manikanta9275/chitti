@@ -7,6 +7,7 @@ import SyncStatusButton from './components/SyncStatusButton';
 import MainDashboard from './components/MainDashboard';
 import CollectionDetails from './components/CollectionDetails';
 import MemberManagement from './components/MemberManagement';
+import PendingList from './components/PendingList';
 import ActivityHistory from './components/ActivityHistory';
 
 const MONTHS = [
@@ -27,6 +28,7 @@ const MONTHS = [
 const TAB_INFO = {
   dashboard: { label: 'Dashboard', icon: 'bi-speedometer2' },
   members: { label: 'Members Directory', icon: 'bi-people' },
+  pending: { label: 'Pending List', icon: 'bi-exclamation-circle' },
   logs: { label: 'Activity Logs', icon: 'bi-clock-history' }
 };
 
@@ -172,6 +174,15 @@ function MainApp() {
           <div className="container py-4">
             <MemberManagement />
           </div>
+        ) : activeTab === 'pending' ? (
+          <PendingList
+            month={selectedMonth}
+            year={selectedYear}
+            onSelectDate={(d) => {
+              setActiveTab('dashboard');
+              handleSelectDate(d);
+            }}
+          />
         ) : (
           <ActivityHistory />
         )}

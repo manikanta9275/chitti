@@ -48,6 +48,12 @@ function Sidebar({
       desc: 'Manage Members & Assignments'
     },
     {
+      id: 'pending',
+      label: 'Pending List',
+      icon: 'bi-exclamation-circle',
+      desc: 'All Pending Members Across All Dates'
+    },
+    {
       id: 'logs',
       label: 'Activity Logs',
       icon: 'bi-clock-history',

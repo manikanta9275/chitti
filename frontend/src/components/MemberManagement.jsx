@@ -155,6 +155,7 @@ function MemberManagement() {
       phoneNumber: '+91',
       assignedDates: [defaultDate],
       isStarred: false,
+      starCount: 0,
       initialPendingAmount: '',
       chittiCount: 1
     });
@@ -171,6 +172,7 @@ function MemberManagement() {
       phoneNumber: member.phoneNumber,
       assignedDates: member.assignedDates && member.assignedDates.length > 0 ? member.assignedDates : [1],
       isStarred: member.isStarred !== undefined ? Boolean(member.isStarred) : true,
+      starCount: member.starCount !== undefined ? member.starCount : (member.isStarred ? 1 : 0),
       initialPendingAmount: member.initialPendingPaise ? member.initialPendingPaise / 100 : (member.initialPendingRupees || ''),
       chittiCount: member.chittiCount || 1
     });
@@ -631,11 +633,17 @@ function MemberManagement() {
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1 flex-wrap">
-                        {member.isStarred ? (
+                        {(member.starCount > 0 || member.isStarred) ? (
                           <span className="d-inline-flex align-items-center me-1" title="Starred Member">
-                            {Array.from({ length: member.chittiCount || 1 }).map((_, idx) => (
-                              <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
-                            ))}
+                            {(() => {
+                              const count = member.starCount !== undefined ? member.starCount : (member.isStarred ? 1 : 0);
+                              return (
+                                <>
+                                  <i className={`bi ${count >= 1 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                                  <i className={`bi ${count >= 2 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '2px' }}></i>
+                                </>
+                              );
+                            })()}
                           </span>
                         ) : null}
                         <span className="fw-semibold text-dark">{member.name}</span>
@@ -905,42 +913,57 @@ function MemberManagement() {
                     </small>
                   </div>
 
-                  {/* Star Member (★ at start of name) */}
+                  {/* Star Member (2 Editable Stars at start of name) */}
                   <div className="mb-3">
                     <label className="form-label small fw-semibold text-secondary d-block">
-                      Member Star Status
+                      Member Stars (Click to set 0, 1, or 2 stars)
                     </label>
                     <div
                       className={`p-3 rounded-3 border d-flex align-items-center justify-content-between ${
-                        formData.isStarred ? 'bg-warning-subtle border-warning' : 'bg-light border-secondary-subtle'
+                        (formData.starCount || 0) > 0 ? 'bg-warning-subtle border-warning' : 'bg-light border-secondary-subtle'
                       }`}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setFormData({ ...formData, isStarred: !formData.isStarred })}
                     >
-                      <div className="d-flex align-items-center gap-2">
-                        <i className={`bi ${formData.isStarred ? 'bi-star-fill text-warning fs-4' : 'bi-star text-muted fs-4'}`}></i>
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="d-flex align-items-center gap-2">
+                          {[1, 2].map((starNum) => {
+                            const currentStars = formData.starCount !== undefined ? formData.starCount : (formData.isStarred ? 1 : 0);
+                            const isFilled = currentStars >= starNum;
+                            return (
+                              <button
+                                key={starNum}
+                                type="button"
+                                className="btn btn-sm p-1 border-0 bg-transparent"
+                                title={isFilled && currentStars === starNum ? 'Click to remove star' : `Set ${starNum} star(s)`}
+                                onClick={() => {
+                                  const next = currentStars === starNum ? starNum - 1 : starNum;
+                                  setFormData({ ...formData, starCount: next, isStarred: next > 0 });
+                                }}
+                              >
+                                <i className={`bi ${isFilled ? 'bi-star-fill text-warning' : 'bi-star text-muted'} fs-3`}></i>
+                              </button>
+                            );
+                          })}
+                        </div>
                         <div>
                           <div className="fw-bold small text-dark">
-                            {formData.isStarred ? '★ Star Enabled' : 'No Star'}
+                            {(() => {
+                              const c = formData.starCount !== undefined ? formData.starCount : (formData.isStarred ? 1 : 0);
+                              if (c === 2) return '★★ 2 Stars Enabled';
+                              if (c === 1) return '★☆ 1 Star Enabled (1 Empty)';
+                              return 'No Stars';
+                            })()}
                           </div>
-                          <small className="text-muted" style={{ fontSize: '11px' }}>
-                            {/* {formData.isStarred
-                              ? 'A golden star (★) will appear at the start of this member\'s name in collection tables.'
-                              : 'Click to show a golden star before this member\'s name.'} */}
-                          </small>
                         </div>
                       </div>
-                      <div className="form-check form-switch m-0">
-                        <input
-                          className="form-check-input cursor-pointer fs-5"
-                          type="checkbox"
-                          role="switch"
-                          id="memberStarSwitch"
-                          checked={Boolean(formData.isStarred)}
-                          onChange={(e) => setFormData({ ...formData, isStarred: e.target.checked })}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
+                      {(formData.starCount > 0 || formData.isStarred) && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => setFormData({ ...formData, starCount: 0, isStarred: false })}
+                        >
+                          Clear
+                        </button>
+                      )}
                     </div>
                   </div>
 

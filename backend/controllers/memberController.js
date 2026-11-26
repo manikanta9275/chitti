@@ -74,7 +74,7 @@ const getMemberById = async (req, res) => {
 // @access  Admin only
 const createMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount, chittiCount } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, starCount, initialPendingAmount, chittiCount } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Member name is required.' });
     if (!phoneNumber || !phoneNumber.trim()) return res.status(400).json({ success: false, message: 'Phone number is required.' });
     let dates = [5];
@@ -86,12 +86,14 @@ const createMember = async (req, res) => {
     const memberId = await generateNextMemberId();
     const initPendingPaise = Math.max(0, Math.round((Number(initialPendingAmount) || 0) * 100));
 
+    const parsedStarCount = starCount !== undefined ? Math.max(0, Math.min(2, parseInt(starCount, 10) || 0)) : (isStarred ? 1 : 0);
     const member = await Member.create({
       memberId,
       name: name.trim(),
       phoneNumber: cleanPhone,
       assignedDates: dates,
-      isStarred: Boolean(isStarred),
+      isStarred: parsedStarCount > 0 || Boolean(isStarred),
+      starCount: parsedStarCount,
       initialPendingPaise: initPendingPaise,
       chittiCount: Math.max(1, Math.min(10, parseInt(chittiCount) || 1)),
       isActive: true
@@ -125,7 +127,7 @@ const createMember = async (req, res) => {
 // @access  Admin only
 const updateMember = async (req, res) => {
   try {
-    const { name, phoneNumber, assignedDates, isStarred, initialPendingAmount, chittiCount } = req.body;
+    const { name, phoneNumber, assignedDates, isStarred, starCount, initialPendingAmount, chittiCount } = req.body;
     const member = await Member.findById(req.params.id);
     if (!member) {
       return res.status(404).json({ success: false, message: 'Member not found.' });
@@ -149,8 +151,13 @@ const updateMember = async (req, res) => {
         member.assignedDates = dates.sort((a, b) => a - b);
       }
     }
-    if (typeof isStarred === 'boolean') {
+    if (starCount !== undefined) {
+      const parsedStarCount = Math.max(0, Math.min(2, parseInt(starCount, 10) || 0));
+      member.starCount = parsedStarCount;
+      member.isStarred = parsedStarCount > 0;
+    } else if (typeof isStarred === 'boolean') {
       member.isStarred = isStarred;
+      member.starCount = isStarred ? (member.starCount || 1) : 0;
     }
     if (initialPendingAmount !== undefined) {
       member.initialPendingPaise = Math.max(0, Math.round((Number(initialPendingAmount) || 0) * 100));

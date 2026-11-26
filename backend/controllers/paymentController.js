@@ -187,7 +187,7 @@ const getCollectionPayments = async (req, res) => {
     }
 
     let payments = await Payment.find(query)
-      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred createdAt chittiCount')
+      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred starCount createdAt chittiCount')
       .populate('lastUpdatedBy', 'username displayName')
       .sort({ createdAt: 1 });
 
@@ -1130,6 +1130,75 @@ const updatePaymentCollectionAmount = async (req, res) => {
   }
 };
 
+// @desc    Get all pending members across all collection dates for a given month & year
+// @route   GET /api/payments/pending/all
+// @access  Protected
+const getAllPendingMembers = async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const now = new Date();
+    const monthNum = parseInt(month, 10) || now.getMonth() + 1;
+    const yearNum = parseInt(year, 10) || now.getFullYear();
+
+    const period = await CollectionPeriod.findOne({ month: monthNum, year: yearNum });
+    if (!period) {
+      return res.status(200).json({
+        success: true,
+        month: monthNum,
+        year: yearNum,
+        totalPendingRupees: 0,
+        count: 0,
+        pendingMembers: []
+      });
+    }
+
+    const payments = await Payment.find({
+      collectionPeriodId: period._id,
+      status: { $ne: 'PAID' }
+    })
+      .populate('memberId', 'name phoneNumber memberId assignedDates isActive isStarred starCount chittiCount')
+      .lean();
+
+    const pendingMembers = [];
+    let totalPendingPaise = 0;
+
+    for (const p of payments) {
+      if (!p.memberId || !p.memberId.isActive) continue;
+      const balancePaise = Math.max(0, (p.actualAmountPaise || 0) - (p.totalPaidPaise || 0));
+      if (balancePaise <= 0) continue;
+
+      totalPendingPaise += balancePaise;
+      pendingMembers.push({
+        _id: p._id,
+        memberId: p.memberId,
+        collectionDate: p.collectionDate,
+        actualAmountRupees: (p.actualAmountPaise || 0) / 100,
+        totalPaidRupees: (p.totalPaidPaise || 0) / 100,
+        balanceRupees: balancePaise / 100,
+        status: p.status,
+        chittiCount: p.memberId.chittiCount || p.chittiCount || 1
+      });
+    }
+
+    pendingMembers.sort((a, b) => {
+      if (a.collectionDate !== b.collectionDate) return a.collectionDate - b.collectionDate;
+      return (a.memberId?.memberId || '').localeCompare(b.memberId?.memberId || '', undefined, { numeric: true });
+    });
+
+    return res.status(200).json({
+      success: true,
+      month: monthNum,
+      year: yearNum,
+      totalPendingRupees: totalPendingPaise / 100,
+      count: pendingMembers.length,
+      pendingMembers
+    });
+  } catch (error) {
+    console.error('getAllPendingMembers error:', error);
+    return res.status(500).json({ success: false, message: 'Server error retrieving pending members.' });
+  }
+};
+
 module.exports = {
   getCollectionPayments,
   addPaymentTransaction,
@@ -1138,5 +1207,6 @@ module.exports = {
   getMemberStatement,
   undoLastTransaction,
   updateManualPendingAmount,
-  updatePaymentCollectionAmount
+  updatePaymentCollectionAmount,
+  getAllPendingMembers
 };

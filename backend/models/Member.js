@@ -40,6 +40,13 @@ const memberSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    // Number of stars (0, 1, or 2)
+    starCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 2
+    },
     // Initial / previous pending balance carried over (in paise)
     initialPendingPaise: {
       type: Number,

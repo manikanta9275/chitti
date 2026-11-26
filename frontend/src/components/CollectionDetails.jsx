@@ -391,11 +391,17 @@ function CollectionDetails({ month, year, date, onBack }) {
                       <span className="badge bg-light text-secondary border font-monospace" style={{ fontSize: '11px' }}>
                         #{index + 1}
                       </span>
-                      {p.memberId?.isStarred && (
+                      {(p.memberId?.starCount > 0 || p.memberId?.isStarred) && (
                         <span className="d-inline-flex align-items-center" title="Starred Member">
-                          {Array.from({ length: p.memberId?.chittiCount || p.chittiCount || 1 }).map((_, idx) => (
-                            <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
-                          ))}
+                          {(() => {
+                            const count = p.memberId?.starCount !== undefined ? p.memberId.starCount : (p.memberId?.isStarred ? 1 : 0);
+                            return (
+                              <>
+                                <i className={`bi ${count >= 1 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                                <i className={`bi ${count >= 2 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '2px' }}></i>
+                              </>
+                            );
+                          })()}
                         </span>
                       )}
                       <span className="fw-bold text-dark fs-6">{p.memberId?.name}</span>
@@ -591,11 +597,17 @@ function CollectionDetails({ month, year, date, onBack }) {
                         <td className="text-muted small">{index + 1}</td>
                         <td>
                           <div className="d-flex align-items-center gap-1">
-                            {p.memberId?.isStarred && (
+                            {(p.memberId?.starCount > 0 || p.memberId?.isStarred) && (
                               <span className="d-inline-flex align-items-center me-1" title="Starred Member">
-                                {Array.from({ length: p.memberId?.chittiCount || p.chittiCount || 1 }).map((_, idx) => (
-                                  <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
-                                ))}
+                                {(() => {
+                                  const count = p.memberId?.starCount !== undefined ? p.memberId.starCount : (p.memberId?.isStarred ? 1 : 0);
+                                  return (
+                                    <>
+                                      <i className={`bi ${count >= 1 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                                      <i className={`bi ${count >= 2 ? 'bi-star-fill' : 'bi-star'} text-warning`} style={{ fontSize: '13px', marginRight: '2px' }}></i>
+                                    </>
+                                  );
+                                })()}
                               </span>
                             )}
                             <span className="fw-bold text-dark">{p.memberId?.name}</span>

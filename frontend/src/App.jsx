@@ -32,8 +32,8 @@ const TAB_INFO = {
 
 function MainApp() {
   const { user, loading, isAdmin } = useAuth();
-  const [selectedMonth, setSelectedMonth] = useState(10); // Default: October 2026 per specs
-  const [selectedYear, setSelectedYear] = useState(2026);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'members' | 'logs'
   const [selectedDate, setSelectedDate] = useState(null); // When set, shows CollectionDetails for that date
   const [sidebarOpen, setSidebarOpen] = useState(false);

@@ -392,7 +392,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                         #{index + 1}
                       </span>
                       {p.memberId?.isStarred && (
-                        <i className="bi bi-star-fill text-warning" title="Starred Member"></i>
+                        <span className="d-inline-flex align-items-center" title="Starred Member">
+                          {Array.from({ length: p.memberId?.chittiCount || p.chittiCount || 1 }).map((_, idx) => (
+                            <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                          ))}
+                        </span>
                       )}
                       <span className="fw-bold text-dark fs-6">{p.memberId?.name}</span>
                       {((p.memberId?.chittiCount || p.chittiCount) > 1) && (
@@ -404,8 +408,10 @@ function CollectionDetails({ month, year, date, onBack }) {
 
                     <div className="d-flex align-items-center gap-2">
                       <div className="text-end">
-                        <small className="text-muted d-block" style={{ fontSize: '10px' }}>Total Amount</small>
-                        <span className="fw-bold text-dark fs-6">₹{totalAmount.toLocaleString('en-IN')}</span>
+                        <small className="text-muted d-block" style={{ fontSize: '10px' }}>Pending</small>
+                        <span className={`fw-bold fs-6 ${balance === 0 ? 'text-success' : 'text-danger'}`}>
+                          ₹{balance.toLocaleString('en-IN')}
+                        </span>
                       </div>
                       <i className={`bi bi-chevron-${isExpanded ? 'up text-primary' : 'down text-muted'} fs-6 ms-1`}></i>
                     </div>
@@ -586,7 +592,11 @@ function CollectionDetails({ month, year, date, onBack }) {
                         <td>
                           <div className="d-flex align-items-center gap-1">
                             {p.memberId?.isStarred && (
-                              <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
+                              <span className="d-inline-flex align-items-center me-1" title="Starred Member">
+                                {Array.from({ length: p.memberId?.chittiCount || p.chittiCount || 1 }).map((_, idx) => (
+                                  <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                                ))}
+                              </span>
                             )}
                             <span className="fw-bold text-dark">{p.memberId?.name}</span>
                             {((p.memberId?.chittiCount || p.chittiCount) > 1) && (

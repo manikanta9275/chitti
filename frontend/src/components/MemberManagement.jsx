@@ -632,7 +632,11 @@ function MemberManagement() {
                     <td>
                       <div className="d-flex align-items-center gap-1 flex-wrap">
                         {member.isStarred ? (
-                          <i className="bi bi-star-fill text-warning me-1" title="Starred Member"></i>
+                          <span className="d-inline-flex align-items-center me-1" title="Starred Member">
+                            {Array.from({ length: member.chittiCount || 1 }).map((_, idx) => (
+                              <i key={idx} className="bi bi-star-fill text-warning" style={{ fontSize: '13px', marginRight: '1px' }}></i>
+                            ))}
+                          </span>
                         ) : null}
                         <span className="fw-semibold text-dark">{member.name}</span>
                         {(member.chittiCount > 1) && (

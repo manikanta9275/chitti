@@ -197,14 +197,12 @@ Please clear the remaining balance at your earliest convenience.
             <div className="p-3 bg-light rounded-3 border mb-3">
               <div className="row g-2 align-items-center">
                 <div className="col-12 col-md-6">
-                  <span className="text-muted small d-block">Member Name</span>
                   <strong className="text-dark fs-5">{memberName}</strong>
                   <span className="badge bg-secondary-subtle text-secondary border font-monospace ms-2">
                     {payment.memberId?.memberId}
                   </span>
                 </div>
                 <div className="col-12 col-md-6 text-md-end">
-                  <span className="text-muted small d-block">Collection Date</span>
                   <span className="fw-semibold text-primary">
                     {date} {MONTH_NAMES_EN[month]} {year}
                   </span>

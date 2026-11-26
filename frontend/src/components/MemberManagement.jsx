@@ -863,9 +863,9 @@ function MemberManagement() {
                       onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                       required
                     />
-                    <small className="text-muted">
+                    {/* <small className="text-muted">
                       Include country code (e.g., +91 for India) for WhatsApp links.
-                    </small>
+                    </small> */}
                   </div>
 
                   {/* Chitti Count (Single, 2 Chittis, 3 Chittis etc.) */}
@@ -886,9 +886,9 @@ function MemberManagement() {
                         required
                       />
                     </div>
-                    <small className="text-muted">
+                    {/* <small className="text-muted">
                       Example: If basic amount is ₹4,000 and person holds 3 chittis, their amount will be ₹12,000.
-                    </small>
+                    </small> */}
                   </div>
 
                   {/* Previous / Initial Pending Amount */}
@@ -908,9 +908,9 @@ function MemberManagement() {
                         onChange={(e) => setFormData({ ...formData, initialPendingAmount: e.target.value })}
                       />
                     </div>
-                    <small className="text-muted">
+                    {/* <small className="text-muted">
                       If this member has past unpaid balance/debt from previous months or before using this app, enter it here.
-                    </small>
+                    </small> */}
                   </div>
 
                   {/* Star Member (2 Editable Stars at start of name) */}

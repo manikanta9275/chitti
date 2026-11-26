@@ -65,7 +65,7 @@ function WhatsAppModal({
 • చెల్లించినది (Paid Amount): ₹${paidAmount.toLocaleString('en-IN')}
 • బకాయి (Pending Amount): ₹${balanceAmount.toLocaleString('en-IN')}
 
-- K.V.V. Satyanarayana Chitti Collection`;
+- K.V.V. Satyanarayana Chitti Funds Collections`;
       }
 
       const monthEn = MONTH_NAMES_EN[month] || '';
@@ -77,7 +77,7 @@ Chitti Payment Details:
 • Paid Amount: ₹${paidAmount.toLocaleString('en-IN')}
 • Pending Amount: ₹${balanceAmount.toLocaleString('en-IN')}
 
-- K.V.V. Satyanarayana Chitti Collection`;
+- K.V.V. Satyanarayana Chitti Funds Collections`;
     }
 
     // Detailed pattern (previous pattern)
@@ -96,7 +96,7 @@ ${date} ${monthTe} ${year} చిట్టీ కలెక్షన్ చెల
 
 దయచేసి మిగిలిన బకాయి మొత్తాన్ని త్వరగా చెల్లించగలరు.
 
-- K.V.V. Satyanarayana Chitti Collection`;
+- K.V.V. Satyanarayana Chitti Funds Collections`;
     }
 
     const monthEn = MONTH_NAMES_EN[month] || '';
@@ -113,7 +113,7 @@ Your payment details for ${date} ${monthEn} ${year}:
 
 Please clear the remaining balance at your earliest convenience.
 
-- K.V.V. Satyanarayana Chitti Collection`;
+- K.V.V. Satyanarayana Chitti Funds Collections`;
   };
 
   // Generate initial default message

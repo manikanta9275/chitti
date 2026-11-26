@@ -53,7 +53,7 @@ function Login() {
               className="rounded-circle shadow border border-2 border-primary mb-3"
               style={{ width: '80px', height: '80px', objectFit: 'cover' }}
             />
-            <h3 className="fw-bold text-dark mb-1">Chitti Collection</h3>
+            <h3 className="fw-bold text-dark mb-1">Chitti Funds Collections</h3>
             <p className="text-muted small mb-1">Secure PIN Authentication</p>
             {/* Online / Offline Status Badge */}
             <span className={`badge ${online ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'} px-2 py-1`}>

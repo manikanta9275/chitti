@@ -189,7 +189,7 @@ function Sidebar({
               style={{ width: '36px', height: '36px', objectFit: 'cover' }}
             />
             <div>
-              <div className="fw-bold fs-6 lh-1">Chitti Collection</div>
+              <div className="fw-bold fs-6 lh-1">Chitti Funds Collections</div>
               <small className="text-white-50" style={{ fontSize: '11px' }}>Menu Bar</small>
             </div>
           </div>

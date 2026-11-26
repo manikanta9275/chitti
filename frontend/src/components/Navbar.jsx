@@ -30,7 +30,7 @@ function Navbar({ onToggleSidebar, month, year, onSyncComplete }) {
               className="rounded-circle shadow-xs border border-white"
               style={{ width: '36px', height: '36px', objectFit: 'cover' }}
             />
-            <span>Chitti Collection</span>
+            <span>Chitti Funds Collections</span>
           </span>
         </div>
 

@@ -238,7 +238,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
           <div class="logo-title-group">
             <img src="/me_daddy.jpg" class="logo-img" alt="Logo" onerror="this.style.display='none'">
             <div>
-              <h1 class="org-title">K.V.V.Satyanarayana Chitti Collection</h1>
+              <h1 class="org-title">K.V.V.Satyanarayana Chitti Funds Collections</h1>
               <p class="doc-subtitle">Member Running Ledger &amp; Payment Statement</p>
             </div>
           </div>
@@ -316,7 +316,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
         </div>
 
         <div class="footer-note">
-          <div>This is an official computer-generated statement from Chitti Collection System.</div>
+          <div>This is an official computer-generated statement from Chitti Funds Collections System.</div>
           <div style="font-weight: 600;">Page 1 of 1</div>
         </div>
       </body>
@@ -386,7 +386,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     const lastEntry = statement[statement.length - 1];
     const finalBalance = lastEntry ? Number(lastEntry.remainingAmount) || 0 : 0;
 
-    let text = `*K.V.V.Satyanarayana CHITTI COLLECTION*\n`;
+    let text = `*K.V.V.Satyanarayana CHITTI FUNDS COLLECTIONS*\n`;
     text += `*Payment Running Statement*\n`;
     text += `👤 *Member:* ${memberName} (${memberCode})\n`;
     if (collectionDate) text += `📅 *Collection Day:* ${collectionDate}th of every month\n`;
@@ -420,7 +420,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
     text += `*Net Remaining Balance Due:* ₹${finalBalance.toLocaleString('en-IN')}\n\n`;
     text += `Regards,\n`;
     text += `*K.V.V. Satyanarayana*\n`;
-    text += `Chitti Collection\n`;
+    text += `Chitti Funds Collections\n`;
     text += `Thank you!`;
 
     const phone = getFormattedPhone(memberPhone);
@@ -460,7 +460,7 @@ function MemberStatementModal({ member, collectionDate, onClose }) {
             <div className="d-none d-print-block border-bottom pb-3 mb-3">
               <div className="d-flex justify-content-between align-items-start">
                 <div>
-                  <h3 className="fw-bold mb-1 text-dark">K.V.V.Satyanarayana CHITTI COLLECTION — Payment Statement</h3>
+                  <h3 className="fw-bold mb-1 text-dark">K.V.V.Satyanarayana CHITTI FUNDS COLLECTIONS — Payment Statement</h3>
                   <p className="mb-0 text-secondary">
                     Member: <strong>{memberName}</strong> ({memberCode}) &bull; Phone: {memberPhone || '—'}
                   </p>
